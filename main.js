@@ -374,48 +374,8 @@ function generateSpaceship(seed) {
         flatShading: true,
         shininess: 30
     });
-    // Choose layout: grid for wide/rectangular, radial for round, ring+center for 7, etc.
-    let arrangementType;
-    const isPerfectSquare = Number.isInteger(Math.sqrt(thrusterCount));
-    const isEvenGrid = (n, m) => Number.isInteger(n) && Number.isInteger(m) && thrusterCount === n * m;
-    if (blockWidth / blockHeight > 1.3) {
-        // Wide: prefer row or grid
-        if (thrusterCount <= 4) arrangementType = 'row';
-        else if (isEvenGrid(2, thrusterCount / 2)) arrangementType = '2x' + (thrusterCount / 2) + 'grid';
-        else if (isEvenGrid(3, thrusterCount / 3)) arrangementType = '3x' + (thrusterCount / 3) + 'grid';
-        else arrangementType = 'row';
-    } else if (blockHeight / blockWidth > 1.3) {
-        // Tall: prefer column or grid
-        if (thrusterCount <= 4) arrangementType = 'column';
-        else if (isEvenGrid(thrusterCount / 2, 2)) arrangementType = (thrusterCount / 2) + 'x2grid';
-        else if (isEvenGrid(thrusterCount / 3, 3)) arrangementType = (thrusterCount / 3) + 'x3grid';
-        else arrangementType = 'column';
-    } else {
-        // Square/round: prefer radial or grid
-        if ([1,2].includes(thrusterCount)) arrangementType = thrusterCount === 1 ? 'center' : 'bilateral';
-        else if (thrusterCount === 3) arrangementType = rng.random() > 0.5 ? 'triangle' : 'row';
-        else if (thrusterCount === 4) arrangementType = rng.random() > 0.5 ? 'square' : '2x2grid';
-        else if (isPerfectSquare) arrangementType = Math.sqrt(thrusterCount) + 'x' + Math.sqrt(thrusterCount) + 'grid';
-        else if ([5,7].includes(thrusterCount)) arrangementType = rng.random() > 0.5 ? 'ring+center' : 'polygon';
-        else if ([6,8,9,10,12].includes(thrusterCount)) arrangementType = 'polygon';
-        else arrangementType = 'polygon';
-    }
-    // Validate grid arrangement: only use if thrusterCount matches grid size
-    if (arrangementType && arrangementType.endsWith('grid')) {
-        const match = arrangementType.match(/(\d+)x(\d+)grid/);
-        if (match) {
-            const rows = parseInt(match[1], 10);
-            const cols = parseInt(match[2], 10);
-            if (thrusterCount !== rows * cols) {
-                arrangementType = fallbackArrangement();
-            }
-        }
-    }
     // Calculate thruster size based on available area and layout
     let thrusterSize = 0.7 * Math.min(blockWidth, blockHeight) / Math.ceil(Math.sqrt(thrusterCount));
-    if (arrangementType === 'row' || arrangementType === 'column') {
-        thrusterSize = 0.7 * (arrangementType === 'row' ? blockWidth / thrusterCount : blockHeight / thrusterCount);
-    }
     if (thrusterSize < 0.2) thrusterSize = 0.2; // minimum size
     // Calculate hullZOffset for different hull types (needed for thruster Z placement)
     let hullZOffset = 0;
@@ -429,6 +389,126 @@ function generateSpaceship(seed) {
     } else {
         hullZOffset = 1;
     }
+
+    // Utility: Get optimal grid dimensions for a given count and aspect
+    function getGridDimensions(count, width, height) {
+        // Try to make grid as square as possible, but respect aspect
+        let bestRows = 1, bestCols = count, bestScore = Infinity;
+        for (let rows = 1; rows <= count; rows++) {
+            const cols = Math.ceil(count / rows);
+            const aspect = (width / cols) / (height / rows);
+            const aspectScore = Math.abs(Math.log(aspect));
+            if (aspectScore < bestScore) {
+                bestScore = aspectScore;
+                bestRows = rows;
+                bestCols = cols;
+            }
+        }
+        return { rows: bestRows, cols: bestCols };
+    }
+
+    // Utility: Get thruster positions procedurally
+    function getThrusterPositions(count, width, height) {
+        const aspect = width / height;
+        if (aspect > 1.5 && count <= 6) {
+            // Row
+            return Array.from({length: count}, (_, i) => ({
+                x: (i - (count - 1) / 2) * (width / count),
+                y: 0
+            }));
+        } else if (aspect < 0.67 && count <= 6) {
+            // Column
+            return Array.from({length: count}, (_, i) => ({
+                x: 0,
+                y: (i - (count - 1) / 2) * (height / count)
+            }));
+        } else if (count === 1) {
+            return [{x: 0, y: 0}];
+        } else if (count === 2) {
+            return [
+                {x: -width/4, y: 0},
+                {x: width/4, y: 0}
+            ];
+        } else if (count <= 5) {
+            // Place in a regular polygon
+            return Array.from({length: count}, (_, i) => {
+                const angle = (i / count) * Math.PI * 2 - Math.PI/2;
+                return {
+                    x: Math.cos(angle) * width/3,
+                    y: Math.sin(angle) * height/3
+                };
+            });
+        } else {
+            // Improved: Symmetric, staggered grid
+            // Try odd row counts first for best symmetry
+            let bestPattern = [count], bestScore = Infinity;
+            for (let rows = 3; rows <= Math.min(count, 7); rows += 2) {
+                let base = Math.floor(count / rows);
+                let extra = count % rows;
+                let pattern = Array(rows).fill(base);
+                // Distribute extras: outermost rows get extras first for symmetry
+                let left = 0, right = rows - 1;
+                while (extra > 0) {
+                    pattern[left]++;
+                    extra--;
+                    if (extra > 0) {
+                        pattern[right]++;
+                        extra--;
+                    }
+                    left++;
+                    right--;
+                }
+                // Score: minimize max-min, maximize symmetry
+                const minVal = Math.min(...pattern), maxVal = Math.max(...pattern);
+                const symmetry = pattern.reduce((acc, val, i) => acc + Math.abs(val - pattern[pattern.length-1-i]), 0);
+                const score = (maxVal-minVal)*10 + symmetry;
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestPattern = pattern;
+                }
+            }
+            // If no good odd row found, fallback to even rows
+            if (bestPattern.length === 1) {
+                for (let rows = 2; rows <= Math.min(count, 8); rows += 2) {
+                    let base = Math.floor(count / rows);
+                    let extra = count % rows;
+                    let pattern = Array(rows).fill(base);
+                    let left = 0, right = rows - 1;
+                    while (extra > 0) {
+                        pattern[left]++;
+                        extra--;
+                        if (extra > 0) {
+                            pattern[right]++;
+                            extra--;
+                        }
+                        left++;
+                        right--;
+                    }
+                    const minVal = Math.min(...pattern), maxVal = Math.max(...pattern);
+                    const symmetry = pattern.reduce((acc, val, i) => acc + Math.abs(val - pattern[pattern.length-1-i]), 0);
+                    const score = (maxVal-minVal)*10 + symmetry;
+                    if (score < bestScore) {
+                        bestScore = score;
+                        bestPattern = pattern;
+                    }
+                }
+            }
+            // Place thrusters row by row, centering each row and using its own width
+            const positions = [];
+            const totalRows = bestPattern.length;
+            for (let row = 0, placed = 0; row < totalRows; row++) {
+                const thrustersInRow = bestPattern[row];
+                const y = (row - (totalRows - 1) / 2) * (height / totalRows);
+                for (let col = 0; col < thrustersInRow; col++, placed++) {
+                    const x = (col - (thrustersInRow - 1) / 2) * (width / thrustersInRow);
+                    positions.push({x, y});
+                }
+            }
+            return positions;
+        }
+    }
+
+    const thrusterPositions = getThrusterPositions(thrusterCount, blockWidth, blockHeight);
     for (let i = 0; i < thrusterCount; i++) {
         // Choose geometry based on thrusterStyle
         let thrusterGeom;
@@ -448,89 +528,11 @@ function generateSpaceship(seed) {
         }
         const thrusterMesh = new THREE.Mesh(thrusterGeom, thrusterMaterial);
         // Placement logic
-        let x = 0, y = 0, z, angle = 0;
+        let x = thrusterPositions[i].x, y = thrusterPositions[i].y;
         // Z offset: always flush with hull
-        z = -hullZOffset - (thrusterSize * 1.1);
-        // Placement by arrangement
-        // console.info('arrangementType', arrangementType);
-        switch (arrangementType) {
-            case 'center':
-                x = 0; y = 0;
-                break;
-            case 'bilateral':
-                x = i === 0 ? -blockWidth/4 : blockWidth/4; y = 0;
-                break;
-            case 'triangle':
-                angle = (i / 3) * Math.PI * 2 + Math.PI / 2;
-                x = Math.cos(angle) * blockWidth/4;
-                y = Math.sin(angle) * blockHeight/4;
-                break;
-            case 'square':
-            case '2x2grid':
-            case '2x3grid':
-            case '2x4grid':
-            case '2x5grid':
-            case '3x2grid':
-            case '3x3grid':
-            case '3x4grid':
-            case '4x2grid':
-            case '4x3grid': {
-                // Parse grid arrangementType like '2x5grid'
-                const match = arrangementType.match(/(\d+)x(\d+)grid/);
-                if (match) {
-                    const cols = parseInt(match[2], 10);
-                    const rows = parseInt(match[1], 10);
-                    const col = i % cols;
-                    const row = Math.floor(i / cols);
-                    x = (col - (cols - 1) / 2) * (blockWidth / cols);
-                    y = (row - (rows - 1) / 2) * (blockHeight / rows);
-                }
-                break;
-            }
-            case 'row':
-                x = (i - (thrusterCount - 1) / 2) * (blockWidth / thrusterCount);
-                y = 0;
-                break;
-            case 'column':
-                x = 0;
-                y = (i - (thrusterCount - 1) / 2) * (blockHeight / thrusterCount);
-                break;
-            case 'grid':
-            default: {
-                // General grid for any count
-                const cols = Math.ceil(Math.sqrt(thrusterCount));
-                const rows = Math.ceil(thrusterCount / cols);
-                const col = i % cols;
-                const row = Math.floor(i / cols);
-                x = (col - (cols - 1) / 2) * (blockWidth / cols);
-                y = (row - (rows - 1) / 2) * (blockHeight / rows);
-                break;
-            }
-            case 'polygon': {
-                angle = (i / thrusterCount) * Math.PI * 2;
-                x = Math.cos(angle) * blockWidth/2.5;
-                y = Math.sin(angle) * blockHeight/2.5;
-                break;
-            }
-            case 'ring+center': {
-                if (i === 0) {
-                    x = 0; y = 0;
-                } else {
-                    angle = ((i - 1) / (thrusterCount - 1)) * Math.PI * 2;
-                    x = Math.cos(angle) * blockWidth/3;
-                    y = Math.sin(angle) * blockHeight/3;
-                }
-                break;
-            }
-        }
+        let z = -hullZOffset - (thrusterSize * 1.1);
         thrusterMesh.position.set(x, y, z);
         thrusterMesh.rotation.set(0, 0, 0);
-        // For radial arrangements, rotate base to match radial angle
-        if ([
-            'triangle','polygon','ring+center'
-        ].includes(arrangementType) && i !== 0) {
-            thrusterMesh.rotateZ(angle);
-        }
         // Add a simple glow for the thruster as a child
         const glowGeom = new THREE.ConeGeometry(thrusterSize * 0.5, thrusterSize * 1.5, 8);
         const glowMat = new THREE.MeshBasicMaterial({
