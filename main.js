@@ -115,209 +115,6 @@ function generateSpaceship(seed) {
     const rng = new SeededRandom(seed);
     const spaceship = new THREE.Group();
 
-    // Color palette
-    // const primaryColor = new THREE.Color().setHSL(rng.random(), 0.7, 0.5);
-    // const secondaryColor = new THREE.Color().setHSL(rng.random(), 0.3, 0.3);
-    // const accentColor = new THREE.Color().setHSL(rng.random(), 0.8, 0.6);
-
-    // Materials
-    // const primaryMaterial = new THREE.MeshPhongMaterial({
-    //     color: primaryColor,
-    //     flatShading: true,
-    //     shininess: 100
-    // });
-    // const secondaryMaterial = new THREE.MeshPhongMaterial({
-    //     color: secondaryColor,
-    //     flatShading: true,
-    //     shininess: 50
-    // });
-    // const accentMaterial = new THREE.MeshPhongMaterial({
-    //     color: accentColor,
-    //     flatShading: true,
-    //     emissive: accentColor,
-    //     emissiveIntensity: 0.3
-    // });
-
-    // // Main hull
-    // const hullType = rng.int(0, 3);
-    // let hull;
-    // switch(hullType) {
-    //     case 0: // Box hull
-    //         hull = new THREE.BoxGeometry(
-    //             rng.range(3, 6),
-    //             rng.range(1.5, 3),
-    //             rng.range(6, 10)
-    //         );
-    //         break;
-    //     case 1: // Cylinder hull
-    //         hull = new THREE.CylinderGeometry(
-    //             rng.range(1.5, 3),
-    //             rng.range(2, 4),
-    //             rng.range(6, 10),
-    //             rng.int(6, 8),
-    //             1,
-    //             false
-    //         );
-    //         hull.rotateX(Math.PI / 2);
-    //         break;
-    //     case 2: // Cone hull
-    //         hull = new THREE.ConeGeometry(
-    //             rng.range(2, 4),
-    //             rng.range(6, 10),
-    //             rng.int(6, 8)
-    //         );
-    //         hull.rotateX(-Math.PI / 2);
-    //         break;
-    //     case 3: // Octahedron hull
-    //         hull = new THREE.OctahedronGeometry(rng.range(3, 5));
-    //         hull.scale(1, 0.6, 1.5);
-    //         break;
-    // }
-    // const hullMesh = new THREE.Mesh(hull, primaryMaterial);
-    // spaceship.add(hullMesh);
-
-    // // Cockpit
-    // const cockpitType = rng.int(0, 2);
-    // let cockpit;
-    // switch(cockpitType) {
-    //     case 0:
-    //         cockpit = new THREE.SphereGeometry(
-    //             rng.range(1, 2),
-    //             rng.int(6, 8),
-    //             rng.int(4, 6)
-    //         );
-    //         break;
-    //     case 1:
-    //         cockpit = new THREE.BoxGeometry(
-    //             rng.range(1.5, 2.5),
-    //             rng.range(1, 1.5),
-    //             rng.range(2, 3)
-    //         );
-    //         break;
-    //     case 2:
-    //         cockpit = new THREE.TetrahedronGeometry(rng.range(1.5, 2.5));
-    //         break;
-    // }
-    // const cockpitMesh = new THREE.Mesh(cockpit, accentMaterial);
-    // cockpitMesh.position.z = rng.range(3, 5);
-    // cockpitMesh.position.y = rng.range(0, 1);
-    // spaceship.add(cockpitMesh);
-
-    // Engines
-    // const engineCount = rng.int(1, 4);
-    // for (let i = 0; i < engineCount; i++) {
-    //     const engine = new THREE.CylinderGeometry(
-    //         rng.range(0.5, 1),
-    //         rng.range(0.3, 0.8),
-    //         rng.range(2, 4),
-    //         rng.int(6, 8)
-    //     );
-    //     const engineMesh = new THREE.Mesh(engine, secondaryMaterial);
-    //
-    //     if (engineCount === 1) {
-    //         engineMesh.position.set(0, 0, -rng.range(4, 6));
-    //     } else {
-    //         const angle = (i / engineCount) * Math.PI * 2;
-    //         engineMesh.position.set(
-    //             Math.cos(angle) * rng.range(2, 3),
-    //             Math.sin(angle) * rng.range(1, 2),
-    //             -rng.range(4, 6)
-    //         );
-    //     }
-    //
-    //     engineMesh.rotation.x = Math.PI / 2;
-    //     spaceship.add(engineMesh);
-    //
-    //     // Engine glow
-    //     const glowGeometry = new THREE.ConeGeometry(
-    //         rng.range(0.3, 0.6),
-    //         rng.range(1, 2),
-    //         rng.int(6, 8)
-    //     );
-    //     const glowMaterial = new THREE.MeshBasicMaterial({
-    //         color: accentColor,
-    //         transparent: true,
-    //         opacity: 0.8
-    //     });
-    //     const glowMesh = new THREE.Mesh(glowGeometry, glowMaterial);
-    //     glowMesh.position.copy(engineMesh.position);
-    //     glowMesh.position.z -= 1;
-    //     glowMesh.rotation.x = -Math.PI / 2;
-    //     spaceship.add(glowMesh);
-    // }
-
-    // // Wings
-    // if (rng.random() > 0.3) {
-    //     const wingType = rng.int(0, 2);
-    //     const wingCount = rng.random() > 0.5 ? 2 : 4;
-    //     for (let i = 0; i < wingCount; i++) {
-    //         let wing;
-    //         switch(wingType) {
-    //             case 0: // Triangle wings
-    //                 wing = new THREE.BufferGeometry();
-    //                 const vertices = new Float32Array([
-    //                     0, 0, 0,
-    //                     rng.range(3, 5), 0, 0,
-    //                     rng.range(2, 4), 0, -rng.range(2, 4),
-    //                     0, rng.range(0.2, 0.4), 0,
-    //                     rng.range(3, 5), rng.range(0.2, 0.4), 0,
-    //                     rng.range(2, 4), rng.range(0.2, 0.4), -rng.range(2, 4)
-    //                 ]);
-    //                 const indices = [
-    //                     0, 1, 2,  // bottom
-    //                     3, 5, 4,  // top
-    //                     0, 3, 4, 0, 4, 1,  // sides
-    //                     1, 4, 5, 1, 5, 2,
-    //                     2, 5, 3, 2, 3, 0
-    //                 ];
-    //                 wing.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-    //                 wing.setIndex(indices);
-    //                 wing.computeVertexNormals();
-    //                 break;
-    //             case 1: // Box wings
-    //                 wing = new THREE.BoxGeometry(
-    //                     rng.range(3, 5),
-    //                     rng.range(0.2, 0.4),
-    //                     rng.range(2, 3)
-    //                 );
-    //                 break;
-    //             case 2: // Swept wings
-    //                 wing = new THREE.BoxGeometry(
-    //                     rng.range(3, 5),
-    //                     rng.range(0.2, 0.4),
-    //                     rng.range(2, 3)
-    //                 );
-    //                 wing.scale(1, 1, 0.6);
-    //                 break;
-    //         }
-    //         const wingMesh = new THREE.Mesh(wing, secondaryMaterial);
-    //         const side = i % 2 === 0 ? 1 : -1;
-    //         const fore = i < 2 ? 1 : -1;
-    //         wingMesh.position.x = side * rng.range(3, 5);
-    //         wingMesh.position.z = fore * rng.range(0, 2);
-    //         wingMesh.rotation.z = side * rng.range(0, 0.3);
-    //         spaceship.add(wingMesh);
-    //     }
-    // }
-
-    // // Details
-    // const detailCount = rng.int(3, 8);
-    // for (let i = 0; i < detailCount; i++) {
-    //     const detail = new THREE.BoxGeometry(
-    //         rng.range(0.2, 0.5),
-    //         rng.range(0.2, 0.5),
-    //         rng.range(0.5, 1)
-    //     );
-    //     const detailMesh = new THREE.Mesh(detail, accentMaterial);
-    //     const theta = rng.random() * Math.PI * 2;
-    //     const radius = rng.range(1.5, 3);
-    //     detailMesh.position.set(
-    //         Math.cos(theta) * radius,
-    //         Math.sin(theta) * radius * 0.5,
-    //         rng.range(-3, 3)
-    //     );
-    //     spaceship.add(detailMesh);
-    // }
 
     // --- ENGINE BLOCK ONLY ---
     // Engine block: a hull segment with random shape and color
@@ -343,10 +140,8 @@ function generateSpaceship(seed) {
     });
     const hullGeometry = hullShapes[rng.int(0, hullShapes.length - 1)]();
     const hullMesh = new THREE.Mesh(hullGeometry, hullMaterial);
-    spaceship.add(hullMesh);
 
-    // --- THRUSTERS ---
-    // Calculate engine block back face width, height, and depth for thruster area and offset
+    // Calculate engine block width, height, and depth for use in forward hull and thruster placement
     let blockWidth = 2, blockHeight = 1.2, blockDepth = 3; // defaults
     if (hullGeometry.type === 'BoxGeometry') {
         blockWidth = hullGeometry.parameters.width;
@@ -361,6 +156,49 @@ function generateSpaceship(seed) {
         blockHeight = hullGeometry.parameters.radius * 2;
         blockDepth = hullGeometry.parameters.radius * 2;
     }
+    spaceship.add(hullMesh);
+
+    // --- FORWARD HULL SECTION ---
+    // Choose a different shape and color for the forward hull
+    const forwardHullShapes = hullShapes; // reuse shapes for consistency
+    const forwardHullColor = new THREE.Color().setHSL(rng.random(), 0.7, 0.6);
+    const forwardHullMaterial = new THREE.MeshPhongMaterial({
+        color: forwardHullColor,
+        flatShading: true,
+        shininess: 60
+    });
+    const forwardHullGeometry = forwardHullShapes[rng.int(0, forwardHullShapes.length - 1)]();
+    const forwardHullMesh = new THREE.Mesh(forwardHullGeometry, forwardHullMaterial);
+    // Calculate forward hull size for placement
+    let forwardWidth = 2, forwardHeight = 1.2, forwardDepth = 3;
+    if (forwardHullGeometry.type === 'BoxGeometry') {
+        forwardWidth = forwardHullGeometry.parameters.width;
+        forwardHeight = forwardHullGeometry.parameters.height;
+        forwardDepth = forwardHullGeometry.parameters.depth;
+    } else if (forwardHullGeometry.type === 'CylinderGeometry') {
+        forwardWidth = forwardHullGeometry.parameters.radiusTop * 2;
+        forwardHeight = forwardHullGeometry.parameters.radiusTop * 2;
+        forwardDepth = forwardHullGeometry.parameters.height;
+    } else if (forwardHullGeometry.type === 'SphereGeometry') {
+        forwardWidth = forwardHullGeometry.parameters.radius * 2;
+        forwardHeight = forwardHullGeometry.parameters.radius * 2;
+        forwardDepth = forwardHullGeometry.parameters.radius * 2;
+    }
+    // Place the forward hull in front of the engine block
+    let forwardZOffset = 0;
+    if (hullGeometry.type === 'BoxGeometry' || hullGeometry.type === 'CylinderGeometry') {
+        forwardZOffset = (blockDepth / 2) + (forwardDepth / 2);
+    } else if (hullGeometry.type === 'SphereGeometry') {
+        forwardZOffset = (blockDepth / 2) * 0.6 + (forwardDepth / 2) * 0.6;
+    } else {
+        forwardZOffset = 1 + (forwardDepth / 2);
+    }
+    forwardHullMesh.position.set(0, 0, forwardZOffset);
+    spaceship.add(forwardHullMesh);
+    // --- END FORWARD HULL SECTION ---
+
+    // --- THRUSTERS ---
+    // Use blockWidth, blockHeight, blockDepth from above (do not redeclare)
     const attachmentArea = blockWidth * blockHeight;
     // Determine max thruster count based on area (1 per 1.2 units^2, up to 12)
     const maxThrusters = Math.min(12, Math.max(1, Math.floor(attachmentArea / 1.2)));
@@ -390,52 +228,43 @@ function generateSpaceship(seed) {
         hullZOffset = 1;
     }
 
-    // Utility: Get optimal grid dimensions for a given count and aspect
-    function getGridDimensions(count, width, height) {
-        // Try to make grid as square as possible, but respect aspect
-        let bestRows = 1, bestCols = count, bestScore = Infinity;
-        for (let rows = 1; rows <= count; rows++) {
-            const cols = Math.ceil(count / rows);
-            const aspect = (width / cols) / (height / rows);
-            const aspectScore = Math.abs(Math.log(aspect));
-            if (aspectScore < bestScore) {
-                bestScore = aspectScore;
-                bestRows = rows;
-                bestCols = cols;
-            }
-        }
-        return { rows: bestRows, cols: bestCols };
-    }
+    // Seed-based density: 0.6 (loose) to 1.0 (tight)
+    const thrusterDensity = 0.6 + rng.random() * 0.4;
 
-    // Utility: Get thruster positions procedurally
-    function getThrusterPositions(count, width, height) {
+    // Utility: Get thruster positions procedurally, now with density
+    function getThrusterPositions(count, width, height, density, rng) {
         const aspect = width / height;
-        if (aspect > 1.5 && count <= 6) {
+        // Optionally, use seed to bias grid aspect (favor more rows or columns)
+        let aspectBias = rng ? (rng.random() - 0.5) * 0.7 : 0; // -0.35 to +0.35
+        // Shrink grid area by density
+        const gridWidth = width * density;
+        const gridHeight = height * density;
+        if (aspect + aspectBias > 1.5 && count <= 6) {
             // Row
             return Array.from({length: count}, (_, i) => ({
-                x: (i - (count - 1) / 2) * (width / count),
+                x: (i - (count - 1) / 2) * (gridWidth / count),
                 y: 0
             }));
-        } else if (aspect < 0.67 && count <= 6) {
+        } else if (aspect + aspectBias < 0.67 && count <= 6) {
             // Column
             return Array.from({length: count}, (_, i) => ({
                 x: 0,
-                y: (i - (count - 1) / 2) * (height / count)
+                y: (i - (count - 1) / 2) * (gridHeight / count)
             }));
         } else if (count === 1) {
             return [{x: 0, y: 0}];
         } else if (count === 2) {
             return [
-                {x: -width/4, y: 0},
-                {x: width/4, y: 0}
+                {x: -gridWidth/4, y: 0},
+                {x: gridWidth/4, y: 0}
             ];
         } else if (count <= 5) {
             // Place in a regular polygon
             return Array.from({length: count}, (_, i) => {
                 const angle = (i / count) * Math.PI * 2 - Math.PI/2;
                 return {
-                    x: Math.cos(angle) * width/3,
-                    y: Math.sin(angle) * height/3
+                    x: Math.cos(angle) * gridWidth/3,
+                    y: Math.sin(angle) * gridHeight/3
                 };
             });
         } else {
@@ -446,7 +275,6 @@ function generateSpaceship(seed) {
                 let base = Math.floor(count / rows);
                 let extra = count % rows;
                 let pattern = Array(rows).fill(base);
-                // Distribute extras: outermost rows get extras first for symmetry
                 let left = 0, right = rows - 1;
                 while (extra > 0) {
                     pattern[left]++;
@@ -458,16 +286,15 @@ function generateSpaceship(seed) {
                     left++;
                     right--;
                 }
-                // Score: minimize max-min, maximize symmetry
                 const minVal = Math.min(...pattern), maxVal = Math.max(...pattern);
                 const symmetry = pattern.reduce((acc, val, i) => acc + Math.abs(val - pattern[pattern.length-1-i]), 0);
-                const score = (maxVal-minVal)*10 + symmetry;
+                // Use aspectBias to favor more rows or columns
+                const score = (maxVal-minVal)*10 + symmetry + Math.abs(rows - Math.sqrt(count) * (1 + aspectBias)) * 2;
                 if (score < bestScore) {
                     bestScore = score;
                     bestPattern = pattern;
                 }
             }
-            // If no good odd row found, fallback to even rows
             if (bestPattern.length === 1) {
                 for (let rows = 2; rows <= Math.min(count, 8); rows += 2) {
                     let base = Math.floor(count / rows);
@@ -486,7 +313,7 @@ function generateSpaceship(seed) {
                     }
                     const minVal = Math.min(...pattern), maxVal = Math.max(...pattern);
                     const symmetry = pattern.reduce((acc, val, i) => acc + Math.abs(val - pattern[pattern.length-1-i]), 0);
-                    const score = (maxVal-minVal)*10 + symmetry;
+                    const score = (maxVal-minVal)*10 + symmetry + Math.abs(rows - Math.sqrt(count) * (1 + aspectBias)) * 2;
                     if (score < bestScore) {
                         bestScore = score;
                         bestPattern = pattern;
@@ -498,9 +325,9 @@ function generateSpaceship(seed) {
             const totalRows = bestPattern.length;
             for (let row = 0, placed = 0; row < totalRows; row++) {
                 const thrustersInRow = bestPattern[row];
-                const y = (row - (totalRows - 1) / 2) * (height / totalRows);
+                const y = (row - (totalRows - 1) / 2) * (gridHeight / totalRows);
                 for (let col = 0; col < thrustersInRow; col++, placed++) {
-                    const x = (col - (thrustersInRow - 1) / 2) * (width / thrustersInRow);
+                    const x = (col - (thrustersInRow - 1) / 2) * (gridWidth / thrustersInRow);
                     positions.push({x, y});
                 }
             }
@@ -508,7 +335,7 @@ function generateSpaceship(seed) {
         }
     }
 
-    const thrusterPositions = getThrusterPositions(thrusterCount, blockWidth, blockHeight);
+    const thrusterPositions = getThrusterPositions(thrusterCount, blockWidth, blockHeight, thrusterDensity, rng);
     for (let i = 0; i < thrusterCount; i++) {
         // Choose geometry based on thrusterStyle
         let thrusterGeom;
