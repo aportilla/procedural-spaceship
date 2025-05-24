@@ -1,6 +1,12 @@
 // shipgen.js
 // Ship generation logic for procedural-spaceship
 
+import { makeThrusters } from './components/thrusters.js';
+import { makeEngineBlock } from './components/engineBlock.js';
+import { makeCargoSection } from './components/cargoSection.js';
+import { makeCommandDeck } from './components/commandDeck.js';
+
+
 // Seeded random number generator
 export class SeededRandom {
     constructor(seed) {
@@ -201,6 +207,16 @@ const MIN_THRUSTER_POWER = 5;
 
 // Main ship generation function
 export function generateShip(seed, scene, THREE, currentShipRef) {
+    // --- Seed URL param logic ---
+    if (typeof window !== 'undefined' && window.history && window.location) {
+        const url = new URL(window.location.href);
+        // Only update the URL if the seed is not already set
+        if (url.searchParams.get('seed') !== seed) {
+            url.searchParams.set('seed', seed);
+            window.history.replaceState({}, '', url);
+        }
+    }
+
     // Remove previous ship
     if (currentShipRef.current) {
         scene.remove(currentShipRef.current);
@@ -217,26 +233,20 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
     let remainingMassToAlocateToStructures = totalShipMass;
 
     // 2. Pick thruster power within a dynamic range for this mass
-    // The minimum possible power for a thruster is either the global min, or the power needed if we used the max number of thrusters
     const maximumMinThrusterPower = Math.max(MIN_THRUSTER_POWER, totalShipMass / MAX_THRUSTER_COUNT);
-    // The maximum possible power for a thruster is either the global max, or the power needed if we used the min number of thrusters
     const minimumMaxThrusterPower = Math.min(MAX_THRUSTER_POWER, totalShipMass / MIN_THRUSTER_COUNT);
-    // Now pick a thruster power in this range
     let thrusterPower = rng.range(maximumMinThrusterPower, minimumMaxThrusterPower);
 
     // 3. Calculate number of thrusters needed for this mass
     let thrusterCount = Math.ceil(totalShipMass / thrusterPower);
-    // thrusterCount = Math.max(MIN_THRUSTER_COUNT, Math.min(MAX_THRUSTER_COUNT, thrusterCount));
-    // Recalculate thruster power to match the count exactly
     thrusterPower = totalShipMass / thrusterCount;
 
     // 4. Map thruster power to a visual thruster size (area-based)
-    // Area = k * thrusterPower; diameter = 2 * sqrt(area / PI)
     const THRUSTER_AREA_SCALE = 0.015; // tweak for visual scale
     const thrusterArea = THRUSTER_AREA_SCALE * thrusterPower;
     let thrusterSize = 2 * Math.sqrt(thrusterArea / Math.PI); // diameter
 
-    // 5. Arrange thrusters: center cluster, then dense rings
+    // 5. Arrange thrusters
     const thrusterColor = new THREE.Color().setHSL(rng.random(), 0.5, 0.3);
     const thrusterMaterial = new THREE.MeshPhongMaterial({
         color: thrusterColor,
@@ -244,7 +254,7 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
         shininess: 30
     });
 
-    // Try offset grid layout first, then grid, then radial
+    let isRadial = false;
     let thrusterPositions;
     if (thrusterCount >= 7 && rng.random() < 0.5) {
         const offset = offsetGridThrusterLayout(thrusterCount, thrusterSize, rng);
@@ -255,6 +265,7 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
             if (grid) {
                 thrusterPositions = grid;
             } else {
+                isRadial = true;
                 thrusterPositions = radialThrusterLayout(thrusterCount, thrusterSize, rng);
             }
         }
@@ -263,220 +274,126 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
         if (grid) {
             thrusterPositions = grid;
         } else {
+            isRadial = true;
             thrusterPositions = radialThrusterLayout(thrusterCount, thrusterSize, rng);
         }
     } else {
+        isRadial = true;
         thrusterPositions = radialThrusterLayout(thrusterCount, thrusterSize, rng);
     }
 
-    // Track the current attachment point for stacking blocks
-    let attachmentZ = 0; // Start at the back of the ship (thruster plane)
+    let attachmentZ = 0;
+    const thrusterDepth = thrusterSize / 3;
+    // --- Modular Thruster Section ---
+    const thrusterSection = makeThrusters({
+        thrusterPositions,
+        thrusterSize,
+        thrusterDepth,
+        thrusterMaterial,
+        THREE
+    });
+    thrusterSection.mesh.position.z = 0;
+    ship.add(thrusterSection.mesh);
+    attachmentZ = thrusterSection.length;
+    const thrusterAttachmentPoint = attachmentZ; // Save thruster attachment point
 
-    // Place thrusters at z = 0 (already done)
-    for (const pos of thrusterPositions) {
-        const thrusterGeom = new THREE.CylinderGeometry(thrusterSize * 0.5, thrusterSize * 0.5, thrusterSize * 2, 16);
-        thrusterGeom.rotateX(Math.PI / 2);
-        thrusterGeom.translate(0, 0, thrusterSize);
-        const thrusterMesh = new THREE.Mesh(thrusterGeom, thrusterMaterial);
-        thrusterMesh.position.set(pos.x, pos.y, 0);
-        const glowGeom = new THREE.ConeGeometry(thrusterSize * 0.5, thrusterSize * 1.5, 8);
-        const glowMat = new THREE.MeshBasicMaterial({ color: 0x4fc3f7, transparent: true, opacity: 0.6 });
-        const glowMesh = new THREE.Mesh(glowGeom, glowMat);
-        glowMesh.position.set(0, 0, -thrusterSize * 0.5);
-        glowMesh.rotation.set(Math.PI / 2, 0, 0);
-        thrusterMesh.add(glowMesh);
-        ship.add(thrusterMesh);
-    }
-
-
-    attachmentZ = thrusterSize * 2; // Move attachment point to the front face of the thrusters
-
-    // ENGINE BLOCK: create a block that fits the thruster layout and sits just forward of the thrusters
-    // Randomize engine block mass between 5% and 30% of total ship mass
+    // --- Modular Engine Block ---
     const engineBlockMass = Math.min(remainingMassToAlocateToStructures, totalShipMass * rng.range(0.05, 0.3));
     remainingMassToAlocateToStructures -= engineBlockMass;
+    const engineBlockSection = makeEngineBlock({
+        isRadial,
+        thrusterPositions,
+        thrusterSize,
+        engineBlockMass,
+        THREE,
+        rng
+    });
+    // Place so the BACK of the engine block is at attachmentZ
+    engineBlockSection.mesh.position.z = attachmentZ + engineBlockSection.length / 2;
+    attachmentZ += engineBlockSection.length;
+    const cargoAttachmentPoint = attachmentZ; // Update cargo attachment point
+    ship.add(engineBlockSection.mesh);
 
-    // 1. Find bounding box of thruster positions
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    for (const pos of thrusterPositions) {
-        if (pos.x < minX) minX = pos.x;
-        if (pos.x > maxX) maxX = pos.x;
-        if (pos.y < minY) minY = pos.y;
-        if (pos.y > maxY) maxY = pos.y;
-    }
-
-    // Add a little padding
-    const pad = thrusterSize * 0.6;
-    minX -= pad; maxX += pad; minY -= pad; maxY += pad;
-    const width = maxX - minX;
-    const height = maxY - minY;
-
-    // Set engine block depth so that its volume is proportional to ship mass
-    // Volume = width * height * depth; so depth = (desiredVolume) / (width * height)
-    // Let's set desiredVolume = k * totalShipMass, where k is a scaling constant
-    const ENGINE_BLOCK_VOLUME_PER_MASS = 1; // tweak this constant for visual scale
-    const desiredVolume = ENGINE_BLOCK_VOLUME_PER_MASS * engineBlockMass;
-    let engineBlockDepth = desiredVolume / (width * height);
-
-    // 2. Create the engine block geometry
-    const engineBlockGeom = new THREE.BoxGeometry(width, height, engineBlockDepth);
-    const engineBlockMat = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 });
-    const engineBlockMesh = new THREE.Mesh(engineBlockGeom, engineBlockMat);
-
-    // 3. Position the block so its rear face is at the current attachmentZ (just in front of the thrusters)
-    engineBlockMesh.position.set((minX + maxX) / 2, (minY + maxY) / 2, attachmentZ + engineBlockDepth / 2);
-    ship.add(engineBlockMesh);
-
-    // 4. Move the attachment point forward for the next block
-    attachmentZ += engineBlockDepth;
-    // Now, attachmentZ is the z position for the next stacked block's rear face
-
-
-    // CARGO BLOCK: create a block that fits the thruster layout and sits just forward of the engine block
-    // Randomize cargo block mass between 5% and 95% of the remaining mass
+    // --- Modular Cargo Section ---
     const maxCargoFrac = 0.95;
     const minCargoFrac = 0.05;
     const cargoFrac = rng.range(minCargoFrac, maxCargoFrac);
     const cargoBlockMass = Math.min(remainingMassToAlocateToStructures, remainingMassToAlocateToStructures * cargoFrac);
     remainingMassToAlocateToStructures -= cargoBlockMass;
+    const cargoSection = makeCargoSection({
+        cargoBlockMass,
+        THREE,
+        rng
+    });
+    cargoSection.mesh.position.z = attachmentZ + cargoSection.length / 2;
+    attachmentZ += cargoSection.length;
+    const commandDeckAttachmentPoint = attachmentZ; // Update command deck attachment point
+    ship.add(cargoSection.mesh);
 
-    // the cargo block shape will not necessarily match the thruster layout
-    // we'll use a random box shape OR cylinder shape
-    const cargoShapeRand = rng.random();
-    let cargoBlockGeom;
-    let cargoBlockMat;
-    let cargoBlockDepth;
-    if (cargoShapeRand < 0.4) {
-        // Box (aspect-ratio based)
-        // Pick two random aspect ratios, then scale to match the required volume
-        const aspectA = rng.range(0.05, 1.0); // width/height
-        const aspectB = rng.range(0.05, 1.0); // height/depth
-        // Let cargoBlockDepth = d, cargoWidth = w = aspectA * d, cargoHeight = h = aspectB * d
-        // Volume = w * h * d = aspectA * aspectB * d^3 = cargoBlockMass
-        // So d = cbrt(cargoBlockMass / (aspectA * aspectB))
-        let d = Math.cbrt(cargoBlockMass / (aspectA * aspectB));
-        d = Math.max(0.5, Math.min(d, 100));
-        const cargoWidth = aspectA * d;
-        const cargoHeight = aspectB * d;
-        cargoBlockDepth = d;
-        cargoBlockGeom = new THREE.BoxGeometry(cargoWidth, cargoHeight, cargoBlockDepth);
-        cargoBlockMat = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 });
-        // Place box cargo block
-        const cargoBlockMesh = new THREE.Mesh(cargoBlockGeom, cargoBlockMat);
-        cargoBlockMesh.position.set(0, 0, attachmentZ + cargoBlockDepth / 2);
-        ship.add(cargoBlockMesh);
-        attachmentZ += cargoBlockDepth;
-    } else if (cargoShapeRand < 0.8) {
-        // Cylinder (aspect-ratio based)
-        // Pick a random aspect ratio for radius/depth
-        const aspect = rng.range(0.01, 1.0); // radius/depth
-        // Let cargoBlockDepth = d, cargoRadius = r = aspect * d
-        // Volume = PI * r^2 * d = PI * aspect^2 * d^3 = cargoBlockMass
-        // So d = cbrt(cargoBlockMass / (PI * aspect^2))
-        let d = Math.cbrt(cargoBlockMass / (Math.PI * aspect * aspect));
-        d = Math.max(0.5, Math.min(d, 100));
-        const cargoRadius = aspect * d;
-        cargoBlockDepth = d;
-        cargoBlockGeom = new THREE.CylinderGeometry(cargoRadius, cargoRadius, cargoBlockDepth, 16);
-        cargoBlockGeom.rotateX(Math.PI / 2);
-        cargoBlockMat = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 });
-        // Place cylinder cargo block
-        const cargoBlockMesh = new THREE.Mesh(cargoBlockGeom, cargoBlockMat);
-        cargoBlockMesh.position.set(0, 0, attachmentZ + cargoBlockDepth / 2);
-        ship.add(cargoBlockMesh);
-        attachmentZ += cargoBlockDepth;
-    } else {
-        // Spheres with flush-mount cylinders through the middle, arranged end-to-end
-        const numSpheres = rng.int(1, 5);
-        // Divide cargoBlockMass equally among spheres
-        const sphereMass = cargoBlockMass / numSpheres;
-        let sphereRadiusArr = [];
-        let sphereDepthArr = [];
-        let sphereMeshes = [];
-        let totalLength = 0;
-        for (let i = 0; i < numSpheres; i++) {
-            // 1. Compute sphere radius from volume: V = (4/3) * PI * r^3 => r = cbrt(3 * mass / (4 * PI))
-            const sphereRadius = Math.cbrt((3 * sphereMass) / (4 * Math.PI));
-            const cylRadius = sphereRadius * 0.15; // 15% of sphere diameter
-            const cylDepth = sphereRadius * 2;
-            // 3. Create sphere and cylinder geometries
-            const sphereGeom = new THREE.SphereGeometry(sphereRadius, 20, 16);
-            const cylGeom = new THREE.CylinderGeometry(cylRadius, cylRadius, cylDepth * 1.05, 16);
-            cylGeom.rotateX(Math.PI / 2);
-            // 4. Merge the two geometries
-            let mergedGeom;
-            if (THREE.BufferGeometryUtils && THREE.BufferGeometryUtils.mergeBufferGeometries) {
-                mergedGeom = THREE.BufferGeometryUtils.mergeBufferGeometries([sphereGeom, cylGeom]);
-            } else {
-                mergedGeom = new THREE.Group();
-                mergedGeom.add(new THREE.Mesh(sphereGeom));
-                mergedGeom.add(new THREE.Mesh(cylGeom));
-            }
-            const mesh = (mergedGeom instanceof THREE.Group)
-                ? mergedGeom
-                : new THREE.Mesh(mergedGeom, new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 }));
-            // Store for later placement
-            sphereRadiusArr.push(sphereRadius);
-            sphereDepthArr.push(cylDepth);
-            sphereMeshes.push(mesh);
-            totalLength += cylDepth;
-        }
-        // Arrange spheres end-to-end along z, with the center of the first sphere at attachmentZ + its radius
-        let sphereZ = attachmentZ + sphereRadiusArr[0];
-        for (let i = 0; i < numSpheres; i++) {
-            let mesh = sphereMeshes[i];
-            mesh.position.set(0, 0, sphereZ);
-            // If mesh is a group, set material for all children
-            if (mesh instanceof THREE.Group) {
-                mesh.children.forEach(child => child.material = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 }));
-            }
-            ship.add(mesh);
-            // For next sphere, increment by half current + half next depth
-            if (i < numSpheres - 1) {
-                sphereZ += (sphereDepthArr[i] / 2) + (sphereDepthArr[i + 1] / 2);
-            }
-        }
-        cargoBlockDepth = totalLength;
-        // Move attachmentZ forward by totalLength (not totalLength + sphereRadiusArr[0])
-        attachmentZ += totalLength;
-    }
-
-    // COMMAND DECK: create a section at the front, using all remaining mass
+    // --- Modular Command Deck ---
     const commandDeckMass = remainingMassToAlocateToStructures;
-    // Pick a random shape: box, cylinder, or cone
-    const commandDeckShapeRand = rng.random();
-    let commandDeckGeom, commandDeckMat, commandDeckDepth;
-    if (commandDeckShapeRand < 0.4) {
-        // Box (aspect-ratio based)
-        const aspectA = rng.range(0.5, 2.0);
-        const aspectB = rng.range(0.5, 2.0);
-        let d = Math.cbrt(commandDeckMass / (aspectA * aspectB));
-        d = Math.max(0.3, Math.min(d, 50));
-        const deckWidth = aspectA * d;
-        const deckHeight = aspectB * d;
-        commandDeckDepth = d;
-        commandDeckGeom = new THREE.BoxGeometry(deckWidth, deckHeight, commandDeckDepth);
-    } else if (commandDeckShapeRand < 0.8) {
-        // Cylinder (aspect-ratio based)
-        const aspect = rng.range(0.3, 2.0);
-        let d = Math.cbrt(commandDeckMass / (Math.PI * aspect * aspect));
-        d = Math.max(0.3, Math.min(d, 50));
-        const deckRadius = aspect * d;
-        commandDeckDepth = d;
-        commandDeckGeom = new THREE.CylinderGeometry(deckRadius, deckRadius, commandDeckDepth, 16);
-        commandDeckGeom.rotateX(Math.PI / 2);
-    } else {
-        // Sphere
-        const deckRadius = Math.cbrt((3 * commandDeckMass) / (4 * Math.PI));
-        commandDeckDepth = deckRadius * 2;
-        commandDeckGeom = new THREE.SphereGeometry(deckRadius, 20, 16);
+    const commandDeckSection = makeCommandDeck({
+        commandDeckMass,
+        THREE,
+        rng
+    });
+    commandDeckSection.mesh.position.z = attachmentZ + commandDeckSection.length / 2;
+    attachmentZ += commandDeckSection.length;
+    ship.add(commandDeckSection.mesh);
+    const endAttachmentPoint = attachmentZ;
+    // --- DEBUG: Draw lines at each segment connection point ---
+    function addDebugLine(z, color = 0xff0000) {
+        const mat = new THREE.LineBasicMaterial({ color });
+        const points = [
+            new THREE.Vector3(-10, 0, z),
+            new THREE.Vector3(10, 0, z),
+            new THREE.Vector3(0, -10, z),
+            new THREE.Vector3(0, 10, z)
+        ];
+        for (let i = 0; i < points.length; i += 2) {
+            const geom = new THREE.BufferGeometry().setFromPoints([points[i], points[i+1]]);
+            const line = new THREE.Line(geom, mat);
+            ship.add(line);
+        }
     }
-    commandDeckMat = new THREE.MeshPhongMaterial({ color: 0xcccccc, flatShading: true, shininess: 30 });
-    const commandDeckMesh = new THREE.Mesh(commandDeckGeom, commandDeckMat);
-    commandDeckMesh.position.set(0, 0, attachmentZ + commandDeckDepth / 2);
-    ship.add(commandDeckMesh);
-    attachmentZ += commandDeckDepth;
+    // --- DEBUG: Draw lines at each segment connection point ---
+    // After thrusters
+    addDebugLine(thrusterAttachmentPoint, 0xff0000); // Red: after thrusters
+    // After engine block
+    addDebugLine(cargoAttachmentPoint, 0x00ff00); // Green: after engine block
+    // After cargo section
+    addDebugLine(commandDeckAttachmentPoint, 0x0000ff); // Blue: after cargo
+    // After command deck
+    addDebugLine(endAttachmentPoint, 0xffff00); // Yellow: after command deck
 
-    currentShipRef.current = ship;
-    scene.add(ship);
+    // --- DEBUG: Add a marker at the scene origin (0,0,0) ---
+    const originMarkerGeom = new THREE.SphereGeometry(0.2, 12, 8);
+    const originMarkerMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
+    const originMarker = new THREE.Mesh(originMarkerGeom, originMarkerMat);
+    originMarker.position.set(0, 0, 0);
+    scene.add(originMarker);
+
+    // Center the ship so its midpoint is at z=0
+    ship.position.z = -endAttachmentPoint / 2;
+
+    // Create a root group for rotation
+    const shipRoot = new THREE.Group();
+    shipRoot.add(ship);
+
+    currentShipRef.current = shipRoot;
+    scene.add(shipRoot);
+    // (Remove: currentShipRef.current = ship; scene.add(ship);)
+}
+
+// --- Helper: Get seed from URL or generate new one ---
+export function getInitialSeed() {
+    if (typeof window !== 'undefined' && window.location) {
+        const url = new URL(window.location.href);
+        const urlSeed = url.searchParams.get('seed');
+        if (urlSeed && urlSeed.length > 0) {
+            return urlSeed;
+        }
+    }
+    // If no seed in URL, generate a random one
+    return Math.random().toString(36).slice(2, 10);
 }

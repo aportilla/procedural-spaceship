@@ -71,22 +71,92 @@ updateCameraPosition();
 
 // --- THRUSTER-BASED SHIP GENERATION ---
 import { randomSeed } from './randomseed.js';
-import { SeededRandom, generateShip } from './shipgen.js';
+import { SeededRandom, generateShip, getInitialSeed } from './shipgen.js';
 
 let currentShip = { current: null };
 
 const seedInput = document.getElementById('seedInput');
 const generateBtn = document.getElementById('generateBtn');
+const controlsContainer = document.getElementById('controls');
+// Add previous/next buttons as a pill pair with glyphs
+const prevBtn = document.createElement('button');
+prevBtn.innerHTML = '&#8592;'; // Left arrow
+prevBtn.id = 'prevSeedBtn';
+const nextBtn = document.createElement('button');
+nextBtn.innerHTML = '&#8594;'; // Right arrow
+nextBtn.id = 'nextSeedBtn';
+
+// Style the previous/next buttons as a pill pair
+const pillGroup = document.createElement('div');
+pillGroup.className = 'pill-group';
+pillGroup.appendChild(prevBtn);
+pillGroup.appendChild(nextBtn);
+
+// Remove old floating controlsDiv if present
+const oldControlsDiv = document.getElementById('controlsDiv');
+if (oldControlsDiv && oldControlsDiv.parentNode) oldControlsDiv.parentNode.removeChild(oldControlsDiv);
+
+// --- Move controls into the main seed input widget as a footer ---
+let controlsFooter = document.getElementById('controlsFooter');
+if (controlsFooter && controlsFooter.parentNode) controlsFooter.parentNode.removeChild(controlsFooter);
+controlsFooter = document.createElement('div');
+controlsFooter.id = 'controlsFooter';
+controlsFooter.className = 'controls-footer';
+controlsFooter.appendChild(pillGroup);
+controlsFooter.appendChild(generateBtn);
+
+// Insert footer after the seed input (and before #info)
+const infoDiv = document.getElementById('info');
+controlsContainer.insertBefore(controlsFooter, infoDiv);
+
+// Seed history logic
+let seedHistory = [];
+let seedIndex = -1;
+
+function setSeedAndGenerate(seed, addToHistory = true) {
+    seedInput.value = seed;
+    generateShip(seed, scene, THREE, currentShip);
+    if (addToHistory) {
+        // If not at the end, truncate forward history
+        if (seedIndex < seedHistory.length - 1) {
+            seedHistory = seedHistory.slice(0, seedIndex + 1);
+        }
+        seedHistory.push(seed);
+        seedIndex = seedHistory.length - 1;
+    }
+    updateNavButtons();
+}
+
+function updateNavButtons() {
+    prevBtn.disabled = seedIndex <= 0;
+    nextBtn.disabled = seedIndex >= seedHistory.length - 1;
+}
+
+// Use getInitialSeed to get the seed from the URL or generate a new one
+const initialSeed = getInitialSeed();
+setSeedAndGenerate(initialSeed, true);
 
 seedInput.addEventListener('input', () => {
-    const seed = seedInput.value || 'default';
-    generateShip(seed, scene, THREE, currentShip);
+    setSeedAndGenerate(seedInput.value || 'default', true);
 });
 
 generateBtn.addEventListener('click', () => {
     const newSeed = randomSeed();
-    seedInput.value = newSeed;
-    generateShip(newSeed, scene, THREE, currentShip);
+    setSeedAndGenerate(newSeed, true);
+});
+
+prevBtn.addEventListener('click', () => {
+    if (seedIndex > 0) {
+        seedIndex--;
+        setSeedAndGenerate(seedHistory[seedIndex], false);
+    }
+});
+
+nextBtn.addEventListener('click', () => {
+    if (seedIndex < seedHistory.length - 1) {
+        seedIndex++;
+        setSeedAndGenerate(seedHistory[seedIndex], false);
+    }
 });
 
 function animate() {
@@ -101,8 +171,3 @@ window.addEventListener('resize', () => {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
-
-// Generate initial ship
-const initialSeed = randomSeed();
-seedInput.value = initialSeed;
-generateShip(initialSeed, scene, THREE, currentShip);
