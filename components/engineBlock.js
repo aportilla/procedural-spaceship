@@ -28,9 +28,11 @@ export function makeEngineBlock({ isRadial, thrusterPositions, thrusterSize, eng
         engineBlockDepth = Math.max(0.5, Math.min(engineBlockDepth, 100));
         engineBlockGeom = new THREE.CylinderGeometry(engineRadius, engineRadius, engineBlockDepth, 8);
         engineBlockGeom.rotateX(Math.PI / 2);
+        // Shift geometry so rear face is at z=0
+        engineBlockGeom.translate(0, 0, engineBlockDepth / 2);
         engineBlockMat = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 });
         mesh = new THREE.Mesh(engineBlockGeom, engineBlockMat);
-        mesh.position.set(0, 0, engineBlockDepth / 2);
+        mesh.position.set(0, 0, 0);
     } else {
         // Box engine block
         const ENGINE_BLOCK_VOLUME_PER_MASS = 1;
@@ -38,9 +40,11 @@ export function makeEngineBlock({ isRadial, thrusterPositions, thrusterSize, eng
         engineBlockDepth = desiredVolume / (width * height);
         engineBlockDepth = Math.max(0.5, Math.min(engineBlockDepth, 100));
         engineBlockGeom = new THREE.BoxGeometry(width, height, engineBlockDepth);
+        // Shift geometry so rear face is at z=0
+        engineBlockGeom.translate(0, 0, engineBlockDepth / 2);
         engineBlockMat = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 });
         mesh = new THREE.Mesh(engineBlockGeom, engineBlockMat);
-        mesh.position.set((minX + maxX) / 2, (minY + maxY) / 2, engineBlockDepth / 2);
+        mesh.position.set((minX + maxX) / 2, (minY + maxY) / 2, 0);
     }
     return { mesh, length: engineBlockDepth };
 }

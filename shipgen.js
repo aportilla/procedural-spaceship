@@ -136,7 +136,7 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
     const thrusterAttachmentPoint = attachmentZ; // Save thruster attachment point
 
     // --- Modular Engine Block ---
-    const engineBlockMass = Math.min(remainingMassToAlocateToStructures, totalShipMass * rng.range(0.05, 0.3));
+    const engineBlockMass = Math.min(remainingMassToAlocateToStructures, totalShipMass * rng.range(0.05, 0.1));
     remainingMassToAlocateToStructures -= engineBlockMass;
     const engineBlockSection = makeEngineBlock({
         isRadial,
@@ -147,7 +147,7 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
         rng
     });
     // Place so the BACK of the engine block is at attachmentZ
-    engineBlockSection.mesh.position.z = attachmentZ + engineBlockSection.length / 2;
+    engineBlockSection.mesh.position.z = attachmentZ;
     attachmentZ += engineBlockSection.length;
     const cargoAttachmentPoint = attachmentZ; // Update cargo attachment point
     ship.add(engineBlockSection.mesh);
@@ -163,7 +163,7 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
         THREE,
         rng
     });
-    cargoSection.mesh.position.z = attachmentZ + cargoSection.length / 2;
+    cargoSection.mesh.position.z = attachmentZ;
     attachmentZ += cargoSection.length;
     const commandDeckAttachmentPoint = attachmentZ; // Update command deck attachment point
     ship.add(cargoSection.mesh);
@@ -175,7 +175,7 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
         THREE,
         rng
     });
-    commandDeckSection.mesh.position.z = attachmentZ + commandDeckSection.length / 2;
+    commandDeckSection.mesh.position.z = attachmentZ;
     attachmentZ += commandDeckSection.length;
     ship.add(commandDeckSection.mesh);
     const endAttachmentPoint = attachmentZ;
