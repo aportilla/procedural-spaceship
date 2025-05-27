@@ -4,7 +4,7 @@
 export function makeCommandDeck({ commandDeckMass, THREE, rng }) {
     const commandDeckShapeRand = rng.random();
     let commandDeckGeom, commandDeckMat, commandDeckDepth;
-    let mesh;
+    let mesh, commandDeckWidth = 0, commandDeckHeight = 0;
     if (commandDeckShapeRand < 0.4) {
         // Box (aspect-ratio based)
         const aspectA = rng.range(0.5, 2.0);
@@ -20,6 +20,8 @@ export function makeCommandDeck({ commandDeckMass, THREE, rng }) {
         commandDeckMat = new THREE.MeshPhongMaterial({ color: 0xcccccc, flatShading: true, shininess: 30 });
         mesh = new THREE.Mesh(commandDeckGeom, commandDeckMat);
         mesh.position.set(0, 0, 0);
+        commandDeckWidth = deckWidth;
+        commandDeckHeight = deckHeight;
     } else if (commandDeckShapeRand < 0.6) {
         // Cylinder (aspect-ratio based)
         const aspect = rng.range(0.3, 2.0);
@@ -34,21 +36,32 @@ export function makeCommandDeck({ commandDeckMass, THREE, rng }) {
         commandDeckMat = new THREE.MeshPhongMaterial({ color: 0xcccccc, flatShading: true, shininess: 30 });
         mesh = new THREE.Mesh(commandDeckGeom, commandDeckMat);
         mesh.position.set(0, 0, 0);
+        commandDeckWidth = deckRadius * 2;
+        commandDeckHeight = commandDeckWidth; // For cylinders, width and height are the same
     } else if (commandDeckShapeRand < 0.8) {
 
+        // Hammerhead Cylinder
         const aspect = rng.range(0.2, 0.5);
         let d = Math.cbrt(commandDeckMass / (Math.PI * aspect * aspect));
         // d = Math.max(0.3, Math.min(d, 50));
         const deckRadius = aspect * d;
-        const commandDeckWidth = d;
+        const cylinderLength = d;
+        const cylinderDiameter = deckRadius * 2; // For cylinders, width and height are the same
         // commandDeckDepth = d;
         commandDeckDepth = deckRadius * 2;
-        commandDeckGeom = new THREE.CylinderGeometry(deckRadius, deckRadius, commandDeckWidth, 8);
+        commandDeckGeom = new THREE.CylinderGeometry(deckRadius, deckRadius, cylinderLength, 8);
         commandDeckGeom.translate(0, 0, commandDeckDepth / 2);
 
         // 50% chance of rotating the cylinder head vertically
         if (rng.random() < 0.5) {
+            // vertical cylinder
             commandDeckGeom.rotateZ(Math.PI / 2);
+            commandDeckWidth = cylinderDiameter; // Width is now the diameter
+            commandDeckHeight = cylinderLength; // Height is the length of the cylinder
+        } else {
+            // horizontal cylinder
+            commandDeckWidth = cylinderLength; // Width is the diameter
+            commandDeckHeight = cylinderDiameter; // Height is the length of the cylinder
         }
 
         commandDeckMat = new THREE.MeshPhongMaterial({ color: 0xcccccc, flatShading: true, shininess: 30 });
@@ -78,20 +91,14 @@ export function makeCommandDeck({ commandDeckMass, THREE, rng }) {
         const sphereGeom = new THREE.SphereGeometry(deckRadius, 6, 4);
         // Shift geometry so rear face is at z=0
         sphereGeom.translate(0, 0, deckRadius);
-        const sphereMesh = new THREE.Mesh(sphereGeom, new THREE.MeshPhongMaterial({ color: 0xcccccc, flatShading: true, shininess: 30 }));
-        sphereMesh.position.set(0, 0, 0);
-        // Add a cylinder connector at the back
-        const cylRadius = deckRadius * 0.35;
-        const cylDepth = deckRadius;
-        const cylGeom = new THREE.CylinderGeometry(cylRadius, cylRadius, cylDepth, 8);
-        cylGeom.rotateX(-Math.PI / 2);
-        // Shift geometry so rear face is at z=0
-        cylGeom.translate(0, 0, cylDepth/2);
-        const cylMesh = new THREE.Mesh(cylGeom, new THREE.MeshPhongMaterial({ color: 0xcccccc, flatShading: true, shininess: 30 }));
-        // cylMesh.position.set(0, 0, -deckRadius);
-        mesh = new THREE.Group();
-        mesh.add(sphereMesh);
-        mesh.add(cylMesh);
+        mesh = new THREE.Mesh(sphereGeom, new THREE.MeshPhongMaterial({ color: 0xcccccc, flatShading: true, shininess: 30 }));
+        mesh.position.set(0, 0, 0);
+        commandDeckWidth = commandDeckHeight = deckRadius * 2;
     }
-    return { mesh, length: commandDeckDepth };
+    return {
+        mesh,
+        length: commandDeckDepth,
+        width: commandDeckWidth,
+        height: commandDeckHeight
+    };
 }

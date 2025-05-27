@@ -46,5 +46,10 @@ export function makeEngineBlock({ isRadial, thrusterPositions, thrusterSize, eng
         mesh = new THREE.Mesh(engineBlockGeom, engineBlockMat);
         mesh.position.set((minX + maxX) / 2, (minY + maxY) / 2, 0);
     }
-    return { mesh, length: engineBlockDepth };
+    return {
+        mesh,
+        length: engineBlockDepth,
+        width: width,
+        height: height
+    };
 }

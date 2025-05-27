@@ -153,9 +153,15 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
     ship.add(engineBlockSection.mesh);
 
     // --- Modular Cargo Section ---
+
     const maxCargoFrac = 0.95;
-    const minCargoFrac = 0.05;
-    const cargoFrac = rng.range(minCargoFrac, maxCargoFrac);
+    const minCargoFrac = 0.15;
+    let cargoFrac = rng.range(minCargoFrac, maxCargoFrac);
+
+    // we should ease this fraction so that it is much more common for cargo to
+    // be a larger fraction of the ship mass... ie: towards the 0.95 end...
+    cargoFrac = Math.pow(cargoFrac, 0.2);
+
     const cargoBlockMass = Math.min(remainingMassToAlocateToStructures, remainingMassToAlocateToStructures * cargoFrac);
     remainingMassToAlocateToStructures -= cargoBlockMass;
     const cargoSection = makeCargoSection({
@@ -179,6 +185,54 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
     attachmentZ += commandDeckSection.length;
     ship.add(commandDeckSection.mesh);
     const endAttachmentPoint = attachmentZ;
+
+
+
+    // what is the width/height of the engine block?
+    const engineBlockWidth = engineBlockSection.width;
+    const engineBlockHeight = engineBlockSection.height;
+    // what is the width/height of the cargo section?
+    const cargoSectionWidth = cargoSection.width;
+    const cargoSectionHeight = cargoSection.height;
+    // what is the width/height of the command deck?
+    const commandDeckWidth = commandDeckSection.width;
+    const commandDeckHeight = commandDeckSection.height;
+
+    // what is the min width of all the sections?
+    const smallestSectionWidth = Math.min(
+        engineBlockWidth,
+        cargoSectionWidth,
+        commandDeckWidth
+    );
+    // what is the min height of all the sections?
+    const smallestSectionHeight = Math.min(
+        engineBlockHeight,
+        cargoSectionHeight,
+        commandDeckHeight
+    );
+
+    // ship core tunnel width height will be random percentage of
+    // the min width/height of all the sections so that the
+    // tunnel is smaller than the smallest section in each dimension
+
+    const tunnelWidth = smallestSectionWidth * rng.range(0.3, 0.55);
+    const tunnelHeight = smallestSectionHeight * rng.range(0.3, 0.55);
+    // subtrack half the depth of the command deck from the attachmentZ
+    const tunnelLength = attachmentZ - commandDeckSection.length / 2;
+    // tunnel will be a long rectangle with a width and height that runs the length of the ship
+
+
+
+    const tunnelGeom = new THREE.BoxGeometry(tunnelWidth, tunnelHeight, tunnelLength);
+    const tunnelMat = new THREE.MeshPhongMaterial({ color: 0x444444, flatShading: true, shininess: 10 });
+    const tunnelMesh = new THREE.Mesh(tunnelGeom, tunnelMat);
+
+    tunnelMesh.position.set(0, 0, attachmentZ / 2);
+
+    ship.add(tunnelMesh);
+
+
+
     // --- DEBUG: Draw lines at each segment connection point ---
     function addDebugLine(z, color = 0xff0000) {
         const mat = new THREE.LineBasicMaterial({ color });
