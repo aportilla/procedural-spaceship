@@ -12,7 +12,7 @@ import { radialThrusterLayout, gridThrusterLayout, offsetGridThrusterLayout } fr
 const MIN_THRUSTER_COUNT = 1;
 const MAX_THRUSTER_COUNT = 33;
 const SHIP_MAX_MASS = 1000;
-const SHIP_MIN_MASS = 25;
+const SHIP_MIN_MASS = 10;
 const MAX_THRUSTER_POWER = 250;
 const MIN_THRUSTER_POWER = 5;
 
@@ -35,6 +35,15 @@ export class SeededRandom {
         const x = Math.sin(this.seed++) * 10000;
         return x - Math.floor(x);
     }
+    weightedRandom(target, standardDeviation = 0.1) {
+        // Box-Muller transform
+        const u1 = this.random();
+        const u2 = this.random();
+        const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+        // Scale, shift, and clamp
+        let result = target + z * standardDeviation;
+        return Math.max(0, Math.min(1, result));
+    }
     range(min, max) {
         return min + this.random() * (max - min);
     }
@@ -42,6 +51,8 @@ export class SeededRandom {
         return Math.floor(this.range(min, max + 1));
     }
 }
+
+
 
 // Main ship generation function
 export function generateShip(seed, scene, THREE, currentShipRef) {
@@ -67,8 +78,18 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
     const ship = new THREE.Group();
 
     // 1. Pick ship mass randomly within range
-    const totalShipMass = rng.range(SHIP_MIN_MASS, SHIP_MAX_MASS);
-    let remainingMassToAlocateToStructures = totalShipMass;
+    // const shipMassScalar = Math.pow(rng.random(), 4); // Bias towards smaller ships
+    const shipMassScalar = rng.random(); // Bias towards smaller ships
+
+    // 1.a calculate mass ratios for ship sections
+    // for LARGE ships the command deck will be relatively smaller
+    const commandDeckMassRatio = 0.01 + rng.weightedRandom((1-shipMassScalar) * 0.2);
+    const engineMassRatio = 0.02 + rng.weightedRandom((1-shipMassScalar) * 0.4);
+    const cargoMassRatio = 1 - engineMassRatio - commandDeckMassRatio;
+
+    // --- End 1.a ---
+
+    const totalShipMass = SHIP_MIN_MASS + shipMassScalar * (SHIP_MAX_MASS - SHIP_MIN_MASS);
 
     // 2. Pick thruster power within a dynamic range for this mass
     const maximumMinThrusterPower = Math.max(MIN_THRUSTER_POWER, totalShipMass / MAX_THRUSTER_COUNT);
@@ -136,8 +157,8 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
     const thrusterAttachmentPoint = attachmentZ; // Save thruster attachment point
 
     // --- Modular Engine Block ---
-    const engineBlockMass = Math.min(remainingMassToAlocateToStructures, totalShipMass * rng.range(0.05, 0.1));
-    remainingMassToAlocateToStructures -= engineBlockMass;
+    const engineBlockMass = totalShipMass * engineMassRatio;
+
     const engineBlockSection = makeEngineBlock({
         isRadial,
         thrusterPositions,
@@ -153,17 +174,7 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
     ship.add(engineBlockSection.mesh);
 
     // --- Modular Cargo Section ---
-
-    const maxCargoFrac = 0.95;
-    const minCargoFrac = 0.15;
-    let cargoFrac = rng.range(minCargoFrac, maxCargoFrac);
-
-    // we should ease this fraction so that it is much more common for cargo to
-    // be a larger fraction of the ship mass... ie: towards the 0.95 end...
-    cargoFrac = Math.pow(cargoFrac, 0.2);
-
-    const cargoBlockMass = Math.min(remainingMassToAlocateToStructures, remainingMassToAlocateToStructures * cargoFrac);
-    remainingMassToAlocateToStructures -= cargoBlockMass;
+    const cargoBlockMass = totalShipMass * cargoMassRatio;
     const cargoSection = makeCargoSection({
         cargoBlockMass,
         THREE,
@@ -175,7 +186,7 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
     ship.add(cargoSection.mesh);
 
     // --- Modular Command Deck ---
-    const commandDeckMass = remainingMassToAlocateToStructures;
+    const commandDeckMass = totalShipMass * commandDeckMassRatio;
     const commandDeckSection = makeCommandDeck({
         commandDeckMass,
         THREE,
