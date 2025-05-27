@@ -24,9 +24,20 @@ export function makeEngineBlock({ isRadial, thrusterPositions, thrusterSize, eng
             if (r > maxR) maxR = r;
         }
         const engineRadius = maxR + thrusterSize * 0.6;
-        engineBlockDepth = engineBlockMass / (Math.PI * engineRadius * engineRadius);
-        engineBlockDepth = Math.max(0.5, Math.min(engineBlockDepth, 100));
-        engineBlockGeom = new THREE.CylinderGeometry(engineRadius, engineRadius, engineBlockDepth, 8);
+
+        let forwardTaperAmount = 1;
+
+        // 50% chance that forward taper is smaller than rear taper
+        if (rng.random() < 0.5) {
+            forwardTaperAmount = 0.75 + rng.random() * 0.25; // 75% to 100% of rear radius
+        }
+
+        const forwardRadius = engineRadius * forwardTaperAmount;
+        const rearRadius = engineRadius;
+
+        // D = 3V / [π(rA² + rA·rB + rB²)]
+        engineBlockDepth = (3 * engineBlockMass) / (Math.PI * (forwardRadius * forwardRadius + forwardRadius * rearRadius + rearRadius * rearRadius));
+        engineBlockGeom = new THREE.CylinderGeometry(forwardRadius, rearRadius, engineBlockDepth, 8);
         engineBlockGeom.rotateX(Math.PI / 2);
         // Shift geometry so rear face is at z=0
         engineBlockGeom.translate(0, 0, engineBlockDepth / 2);
@@ -38,7 +49,6 @@ export function makeEngineBlock({ isRadial, thrusterPositions, thrusterSize, eng
         const ENGINE_BLOCK_VOLUME_PER_MASS = 1;
         const desiredVolume = ENGINE_BLOCK_VOLUME_PER_MASS * engineBlockMass;
         engineBlockDepth = desiredVolume / (width * height);
-        engineBlockDepth = Math.max(0.5, Math.min(engineBlockDepth, 100));
         engineBlockGeom = new THREE.BoxGeometry(width, height, engineBlockDepth);
         // Shift geometry so rear face is at z=0
         engineBlockGeom.translate(0, 0, engineBlockDepth / 2);
