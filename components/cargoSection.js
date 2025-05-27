@@ -1,188 +1,187 @@
 // Cargo Section Component
-// Exports makeCargoSection({ cargoBlockMass, THREE, rng }) => { mesh, length }
+// Exports makeCargoSection({ cargoBlockMass, THREE, rng }) => { mesh, length, width, height }
+//
+// Design:
+// - A cargo section is composed of 1 or more segments (numSegments)
+// - Each segment is a repeated unit along the Z axis
+// - Each segment can be:
+//   - a single box
+//   - a single cylinder
+//   - a radial arrangement of pods (boxes or spheres)
+// - Each pod's size is determined by mass and random aspect ratios
+// - Segments can be separated by a tunnel/gap
+// - The function returns the full cargo section mesh and its bounding box
 
 export function makeCargoSection({ cargoBlockMass, THREE, rng }) {
+    // --- Decide how many segments in this cargo section ---
+    const numSegments = Math.floor(rng.range(1, 6));
+    const segmentMass = cargoBlockMass / numSegments;
 
-    // Decide how many repeating sections (1-5)
-    const numSections = Math.floor(rng.range(1, 6));
-    const sectionMass = cargoBlockMass / numSections;
-
-    // Use a fixed random seed for all sections so they are identical
+    // --- Randomize shape and tunnel/gap options for this section ---
     const cargoShapeRand = rng.random();
     const aspectA = rng.range(0.2, 1.5);
     const aspectB = rng.range(0.2, 1.5);
     const aspectCyl = rng.range(0.3, 2.0);
     const tunnelChance = rng.random();
 
-    let sectionLength = 0;
-    let cargoWidth, cargoHeight, cargoBlockDepth;
-    let sectionMesh;
-    let sectionPodCount = 1; // Default to 1 pod per section
+    // --- Output variables ---
+    let segmentLength = 0; // Length of a single segment
+    let cargoSectionWidth, cargoSectionHeight, cargoSectionDepth; // Bounding box of a segment
+    let segmentMesh; // Mesh for a single segment
+    let segmentPodCount = 1; // Number of pods in a segment (default 1)
 
-    // Build a single section mesh (to be cloned)
+    // --- Build a single segment mesh (to be cloned for each segment) ---
     if (cargoShapeRand < 0.2) {
-        // Box (aspect-ratio based)
-        let d = Math.cbrt(sectionMass / (aspectA * aspectB));
-        d = Math.max(0.5, Math.min(d, 100));
-        cargoWidth = aspectA * d;
-        cargoHeight = aspectB * d;
-        cargoBlockDepth = d;
-        const cargoBlockGeom = new THREE.BoxGeometry(cargoWidth, cargoHeight, cargoBlockDepth);
+        // Single box segment
+        let podDepth = Math.cbrt(segmentMass / (aspectA * aspectB));
+        podDepth = Math.max(0.5, Math.min(podDepth, 100));
+        cargoSectionWidth = aspectA * podDepth;
+        cargoSectionHeight = aspectB * podDepth;
+        cargoSectionDepth = podDepth;
+        const podGeom = new THREE.BoxGeometry(cargoSectionWidth, cargoSectionHeight, cargoSectionDepth);
         // Shift geometry so rear face is at z=0
-        cargoBlockGeom.translate(0, 0, cargoBlockDepth / 2);
-        const cargoBlockMat = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 });
-        sectionMesh = new THREE.Mesh(cargoBlockGeom, cargoBlockMat);
-        sectionMesh.position.set(0, 0, 0);
+        podGeom.translate(0, 0, cargoSectionDepth / 2);
+        const podMat = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 });
+        segmentMesh = new THREE.Mesh(podGeom, podMat);
+        segmentMesh.position.set(0, 0, 0);
     } else if (cargoShapeRand < 0.4) {
-        // Cylinder (aspect-ratio based)
-        let d = Math.cbrt(sectionMass / (Math.PI * aspectCyl * aspectCyl));
-        d = Math.max(0.5, Math.min(d, 100));
-        const cargoRadius = aspectCyl * d;
-        cargoWidth = cargoRadius * 2;
-        cargoHeight = cargoWidth;
-        cargoBlockDepth = d;
-        const cargoBlockGeom = new THREE.CylinderGeometry(cargoRadius, cargoRadius, cargoBlockDepth, 8);
-        cargoBlockGeom.rotateX(Math.PI / 2);
+        // Single cylinder segment
+        let podDepth = Math.cbrt(segmentMass / (Math.PI * aspectCyl * aspectCyl));
+        podDepth = Math.max(0.5, Math.min(podDepth, 100));
+        const podRadius = aspectCyl * podDepth;
+        cargoSectionWidth = podRadius * 2;
+        cargoSectionHeight = cargoSectionWidth;
+        cargoSectionDepth = podDepth;
+        const podGeom = new THREE.CylinderGeometry(podRadius, podRadius, cargoSectionDepth, 8);
+        podGeom.rotateX(Math.PI / 2);
         // Shift geometry so rear face is at z=0
-        cargoBlockGeom.translate(0, 0, cargoBlockDepth / 2);
-        const cargoBlockMat = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 });
-        sectionMesh = new THREE.Mesh(cargoBlockGeom, cargoBlockMat);
-        sectionMesh.position.set(0, 0, 0);
+        podGeom.translate(0, 0, cargoSectionDepth / 2);
+        const podMat = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 });
+        segmentMesh = new THREE.Mesh(podGeom, podMat);
+        segmentMesh.position.set(0, 0, 0);
     } else if (cargoShapeRand <= 0.6) {
-        // Radial distribution of boxes..
-        // we'll split our 'section mass' into 2 to 6 seperate boxes
-        // that we'll distribute radially around the center
-        // and that will be this ONE section.
-        sectionPodCount = Math.floor(rng.range(2, 7));
-        const boxMass = sectionMass / sectionPodCount;
+        // Radial distribution of pods (boxes)
+        segmentPodCount = Math.floor(rng.range(2, 7));
+        const podMass = segmentMass / segmentPodCount;
         const group = new THREE.Group();
         let maxX = 0, maxY = 0, maxZ = 0;
         let minX = 0, minY = 0, minZ = 0;
-        const radius = rng.range(0.5, 2.0); // radius of the circle for box placement
-
-        // Random aspect ratios for the repeated box
-        const aspectA = rng.range(0.3, 1.5);
-        const aspectB = rng.range(0.3, 1.5);
-        for (let i = 0; i < sectionPodCount; i++) {
-            let d = Math.cbrt(boxMass / (aspectA * aspectB));
-            d = Math.max(0.3, Math.min(d, 100));
-            const w = aspectA * d;
-            const h = aspectB * d;
-            const boxDepth = d;
+        const radius = rng.range(0.5, 2.0); // radius of the circle for pod placement
+        const podAspectA = rng.range(0.3, 1.5);
+        const podAspectB = rng.range(0.3, 1.5);
+        for (let i = 0; i < segmentPodCount; i++) {
+            let podDepth = Math.cbrt(podMass / (podAspectA * podAspectB));
+            podDepth = Math.max(0.3, Math.min(podDepth, 100));
+            const podWidth = podAspectA * podDepth;
+            const podHeight = podAspectB * podDepth;
             // Start at 6 o'clock (down the Y axis), so offset angle by Math.PI/2
-            const angle = (i / sectionPodCount) * Math.PI * 2 + Math.PI / 2;
+            const angle = (i / segmentPodCount) * Math.PI * 2 + Math.PI / 2;
             const x = Math.cos(angle) * radius;
             const y = Math.sin(angle) * radius;
-            const boxGeom = new THREE.BoxGeometry(w, h, boxDepth);
-            boxGeom.translate(0, 0, boxDepth / 2); // rear face at z=0
-            const boxMat = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 });
-            const mesh = new THREE.Mesh(boxGeom, boxMat);
-            mesh.position.set(x, y, 0);
-            mesh.rotation.z = angle; // Rotate so face points outward like a petal
-            group.add(mesh);
+            const podGeom = new THREE.BoxGeometry(podWidth, podHeight, podDepth);
+            podGeom.translate(0, 0, podDepth / 2); // rear face at z=0
+            const podMat = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 });
+            const pod = new THREE.Mesh(podGeom, podMat);
+            pod.position.set(x, y, 0);
+            pod.rotation.z = angle; // Rotate so face points outward like a petal
+            group.add(pod);
             // Track extents
-            maxX = Math.max(maxX, x + w / 2);
-            minX = Math.min(minX, x - w / 2);
-            maxY = Math.max(maxY, y + h / 2);
-            minY = Math.min(minY, y - h / 2);
-            maxZ = Math.max(maxZ, boxDepth);
+            maxX = Math.max(maxX, x + podWidth / 2);
+            minX = Math.min(minX, x - podWidth / 2);
+            maxY = Math.max(maxY, y + podHeight / 2);
+            minY = Math.min(minY, y - podHeight / 2);
+            maxZ = Math.max(maxZ, podDepth);
         }
-        sectionMesh = group;
-        cargoWidth = maxX - minX;
-        cargoHeight = maxY - minY;
-        cargoBlockDepth = maxZ;
+        segmentMesh = group;
+        cargoSectionWidth = maxX - minX;
+        cargoSectionHeight = maxY - minY;
+        cargoSectionDepth = maxZ;
     } else if (cargoShapeRand <= 1) {
-        // same as the radial box case above, but with spheres instead
-        sectionPodCount = Math.floor(rng.range(2, 7));
-        const sphereMass = sectionMass / sectionPodCount;
+        // Radial distribution of pods (spheres)
+        segmentPodCount = Math.floor(rng.range(2, 7));
+        const podMass = segmentMass / segmentPodCount;
         const group = new THREE.Group();
         let maxX = 0, maxY = 0, maxZ = 0;
         let minX = 0, minY = 0, minZ = 0;
-        // Compute sphere radius from mass
-        let r = Math.cbrt(3 * sphereMass / (4 * Math.PI));
-        r = Math.max(0.3, Math.min(r, 100));
-        // Calculate minimum radius to prevent intersection
-        const minRadius = r / Math.sin(Math.PI / sectionPodCount);
-        // Optionally add a small gap
-        const gap = 0.05 * r;
+        let podRadius = Math.cbrt(3 * podMass / (4 * Math.PI));
+        podRadius = Math.max(0.3, Math.min(podRadius, 100));
+        const minRadius = podRadius / Math.sin(Math.PI / segmentPodCount);
+        const gap = 0.05 * podRadius;
         const radius = minRadius + gap;
-        for (let i = 0; i < sectionPodCount; i++) {
+        for (let i = 0; i < segmentPodCount; i++) {
             // Start at 6 o'clock (down the Y axis), so offset angle by Math.PI/2
-            const angle = (i / sectionPodCount) * Math.PI * 2 + Math.PI / 2;
+            const angle = (i / segmentPodCount) * Math.PI * 2 + Math.PI / 2;
             const x = Math.cos(angle) * radius;
             const y = Math.sin(angle) * radius;
-            const sphereGeom = new THREE.SphereGeometry(r, 6, 4);
+            const podGeom = new THREE.SphereGeometry(podRadius, 6, 4);
             // Rotate geometry so seam is at 6 o'clock (down Y axis)
-            sphereGeom.rotateZ(-Math.PI / 2);
-            sphereGeom.translate(0, 0, r); // rear face at z=0 (approximate)
-            const sphereMat = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 });
-            const mesh = new THREE.Mesh(sphereGeom, sphereMat);
-            mesh.position.set(x, y, 0);
-            mesh.rotation.z = angle; // Align sphere's vertex pattern with central axis
-            group.add(mesh);
+            podGeom.rotateZ(-Math.PI / 2);
+            podGeom.translate(0, 0, podRadius); // rear face at z=0 (approximate)
+            const podMat = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 });
+            const pod = new THREE.Mesh(podGeom, podMat);
+            pod.position.set(x, y, 0);
+            pod.rotation.z = angle; // Align sphere's vertex pattern with central axis
+            group.add(pod);
             // Track extents
-            maxX = Math.max(maxX, x + r);
-            minX = Math.min(minX, x - r);
-            maxY = Math.max(maxY, y + r);
-            minY = Math.min(minY, y - r);
-            maxZ = Math.max(maxZ, 2 * r);
+            maxX = Math.max(maxX, x + podRadius);
+            minX = Math.min(minX, x - podRadius);
+            maxY = Math.max(maxY, y + podRadius);
+            minY = Math.min(minY, y - podRadius);
+            maxZ = Math.max(maxZ, 2 * podRadius);
         }
-        sectionMesh = group;
-        cargoWidth = maxX - minX;
-        cargoHeight = maxY - minY;
-        cargoBlockDepth = maxZ;
+        segmentMesh = group;
+        cargoSectionWidth = maxX - minX;
+        cargoSectionHeight = maxY - minY;
+        cargoSectionDepth = maxZ;
     }
 
     // --- Add optional leading edge gap with tunnel connector ---
-    let sectionGap = 0;
+    let segmentGap = 0;
     let hasTunnel = tunnelChance < 0.5;
     if (hasTunnel) {
-        // Procedurally random gap between 0.5 and 2.0 units
-        sectionGap = rng.range(0.1,1) * 0.5;
+        // Random gap between segments
+        segmentGap = rng.range(0.1,1) * 0.5;
     }
 
-    sectionLength = cargoBlockDepth;
+    segmentLength = cargoSectionDepth;
 
-    // --- Create the full cargo mesh with repeated sections and gaps ---
-    const group = new THREE.Group();
+    // --- Create the full cargo section mesh with repeated segments and gaps ---
+    const cargoSection = new THREE.Group();
     let totalLength = 0;
     if (hasTunnel) {
-        // Add gap before first section
-        totalLength += sectionGap;
+        // Add gap before first segment
+        totalLength += segmentGap;
     }
 
-    let sectionAngleOffset = 0;
-    let sectionAngleOffsetDelta = 0;
-
-    if (sectionPodCount > 1) {
-        // 50% chance to rotate each section
-        // by half the angle between the section
-        // pods, so that there's a bricklike pattern
+    // --- Optionally offset each segment for a bricklike pattern ---
+    let segmentAngleOffset = 0;
+    let segmentAngleOffsetDelta = 0;
+    if (segmentPodCount > 1) {
+        // 50% chance to rotate each segment by half the angle between pods
         if (rng.random() < 0.5) {
-            sectionAngleOffsetDelta = (Math.PI / sectionPodCount);
+            segmentAngleOffsetDelta = (Math.PI / segmentPodCount);
         }
     }
 
-
-    for (let i = 0; i < numSections; i++) {
-        const clone = sectionMesh.clone(true);
+    // --- Clone and position each segment along the Z axis ---
+    for (let i = 0; i < numSegments; i++) {
+        const clone = segmentMesh.clone(true);
         clone.position.set(0, 0, totalLength);
-
-        clone.rotation.z += sectionAngleOffset;
-        sectionAngleOffset += sectionAngleOffsetDelta;
-
-        group.add(clone);
-        totalLength += sectionLength;
-        if (hasTunnel && i < numSections - 1) {
-            // Add gap between sections
-            totalLength += sectionGap;
+        clone.rotation.z += segmentAngleOffset;
+        segmentAngleOffset += segmentAngleOffsetDelta;
+        cargoSection.add(clone);
+        totalLength += segmentLength;
+        if (hasTunnel && i < numSegments - 1) {
+            // Add gap between segments
+            totalLength += segmentGap;
         }
     }
 
+    // --- Return the cargo section mesh and its bounding box ---
     return {
-        mesh: group,
+        mesh: cargoSection,
         length: totalLength,
-        width: cargoWidth,
-        height: cargoHeight
+        width: cargoSectionWidth,
+        height: cargoSectionHeight
     };
 }
