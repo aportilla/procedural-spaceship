@@ -5,16 +5,16 @@ import { makeThrusters } from './components/thrusters.js';
 import { makeEngineBlock } from './components/engineBlock.js';
 import { makeCargoSection } from './components/cargoSection.js';
 import { makeCommandDeck } from './components/commandDeck.js';
-import { radialThrusterLayout, gridThrusterLayout, offsetGridThrusterLayout } from './components/thrusterLayouts.js';
+// import { radialThrusterLayout, gridThrusterLayout, offsetGridThrusterLayout } from './components/thrusterLayouts.js';
 
 
 // --- Ship and thruster constants ---
-const MIN_THRUSTER_COUNT = 1;
-const MAX_THRUSTER_COUNT = 33;
+// const MIN_THRUSTER_COUNT = 1;
+// const MAX_THRUSTER_COUNT = 33;
 const SHIP_MAX_MASS = 1000;
 const SHIP_MIN_MASS = 10;
-const MAX_THRUSTER_POWER = 250;
-const MIN_THRUSTER_POWER = 5;
+// const MAX_THRUSTER_POWER = 250;
+// const MIN_THRUSTER_POWER = 5;
 
 
 // Seeded random number generator
@@ -53,13 +53,11 @@ export class SeededRandom {
 }
 
 
-
 // Main ship generation function
 export function generateShip(seed, scene, THREE, currentShipRef) {
-    // --- Seed URL param logic ---
+    // Update the URL with the seed if needed
     if (typeof window !== 'undefined' && window.history && window.location) {
         const url = new URL(window.location.href);
-        // Only update the URL if the seed is not already set
         if (url.searchParams.get('seed') !== seed) {
             url.searchParams.set('seed', seed);
             window.history.replaceState({}, '', url);
@@ -75,100 +73,45 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
         });
     }
 
+    let attachmentZ = 0;
     const rng = new SeededRandom(seed);
     const ship = new THREE.Group();
 
-    // 1. Pick ship mass randomly within range
-    //    this is a unit interval [0, 1] that represents the 'ship size' in a normalized way
-    //
-    const shipMassScalar = Math.pow(rng.random(), 4); // Bias towards smaller ships
-    // const shipMassScalar = rng.random(); // Bias towards smaller ships
-    // const shipMassScalar = 0.5;
-
-    // First - make a cargo section for a ship given the overall mass scalar...
-    //         there will be some conditional variation in the cargo section
-    //         based on the ship mass scalar, but it will always be a cargo section
-    //
-    //         part of the return value will be an explicit MASS value for the cargo section
-
+    // Pick ship mass randomly within range, bias towards smaller ships
+    const shipMassScalar = Math.pow(rng.random(), 4);
     const targetTotalShipMass = SHIP_MIN_MASS + shipMassScalar * (SHIP_MAX_MASS - SHIP_MIN_MASS);
 
-
-    // const cargoBlockMass = totalShipMass * cargoMassRatio;
+    // Create cargo section
     const cargoSection = makeCargoSection({
         shipMassScalar,
         THREE,
         rng
     });
+    const cargoMass = cargoSection.mass;
 
-    const cargoMass = cargoSection.mass; // Get the mass of the cargo section
-
-
-    // choose a mass for the engine block and command deck
-
-    // console.info(targetTotalShipMass, cargoMass);
-
-    // 1.a calculate mass ratios for ship sections
-    // for LARGE ships the command deck will be relatively smaller
+    // Calculate mass ratios for ship sections
     const commandDeckMassRatio = 0.01 + rng.weightedRandom((1-shipMassScalar) * 0.2);
     const engineMassRatio = 0.02 + rng.weightedRandom((1-shipMassScalar) * 0.4);
     const commandDeckMass = targetTotalShipMass * commandDeckMassRatio;
     const engineBlockMass = targetTotalShipMass * engineMassRatio;
-
     const totalShipMass = cargoMass + commandDeckMass + engineBlockMass;
-    // console.info('Total Ship Mass:', totalShipMass);
-    // const cargoMassRatio = 1 - engineMassRatio - commandDeckMassRatio;
 
-    // --- End 1.a ---
-
-    // 2. Pick thruster power within a dynamic range for this mass
-    const maximumMinThrusterPower = Math.max(MIN_THRUSTER_POWER, totalShipMass / MAX_THRUSTER_COUNT);
-    const minimumMaxThrusterPower = Math.min(MAX_THRUSTER_POWER, totalShipMass / MIN_THRUSTER_COUNT);
-    let thrusterPower = rng.range(maximumMinThrusterPower, minimumMaxThrusterPower);
-
-    // 3. Calculate number of thrusters needed for this mass
-    let thrusterCount = Math.ceil(totalShipMass / thrusterPower);
-    thrusterPower = totalShipMass / thrusterCount;
-
-    // 4. Map thruster power to a visual thruster size (area-based)
-    const THRUSTER_AREA_SCALE = 0.015; // tweak for visual scale
-    const thrusterArea = THRUSTER_AREA_SCALE * thrusterPower;
-    let thrusterSize = 2 * Math.sqrt(thrusterArea / Math.PI); // diameter
-
-    // 5. Arrange thrusters
-    const thrusterColor = new THREE.Color().setHSL(rng.random(), 0.5, 0.3);
-    const thrusterMaterial = new THREE.MeshPhongMaterial({
-        color: thrusterColor,
-        flatShading: true,
-        shininess: 30
-    });
-
-    let attachmentZ = 0;
-
-    // --- Modular Thruster Section ---
+    // Thruster section
     const thrusterSection = makeThrusters({
-        thrusterCount,
-        thrusterSize,
-        thrusterMaterial,
+        shipMassScalar,
+        totalShipMass,
         rng,
         THREE
     });
     thrusterSection.mesh.position.z = 0;
     ship.add(thrusterSection.mesh);
     attachmentZ = thrusterSection.length;
-    const thrusterAttachmentPoint = attachmentZ; // Save thruster attachment point
+    const thrusterAttachmentPoint = attachmentZ;
     const isRadial = thrusterSection.isRadial;
     const thrusterPositions = thrusterSection.thrusterPositions;
+    const thrusterSize = thrusterSection.thrusterSize;
 
-    const thrusterDepth = thrusterSize / rng.range(0.5, 4); // Depth based on size, more variation
-
-
-
-
-
-    // --- Modular Engine Block ---
-    // const engineBlockMass = totalShipMass * engineMassRatio;
-
+    // Engine block section
     const engineBlockSection = makeEngineBlock({
         isRadial,
         thrusterPositions,
@@ -177,32 +120,18 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
         THREE,
         rng
     });
-
-    // Place so the BACK of the engine block is at attachmentZ
     engineBlockSection.mesh.position.z = attachmentZ;
     attachmentZ += engineBlockSection.length;
-    const cargoAttachmentPoint = attachmentZ; // Update cargo attachment point
+    const cargoAttachmentPoint = attachmentZ;
     ship.add(engineBlockSection.mesh);
 
-
-
-
-
-    // --- Modular Cargo Section ---
-
+    // Cargo section
     cargoSection.mesh.position.z = attachmentZ;
     attachmentZ += cargoSection.length;
-
-    const commandDeckAttachmentPoint = attachmentZ; // Update command deck attachment point
+    const commandDeckAttachmentPoint = attachmentZ;
     ship.add(cargoSection.mesh);
 
-
-
-
-
-
-    // --- Modular Command Deck ---
-    // const commandDeckMass = totalShipMass * commandDeckMassRatio;
+    // Command deck section
     const commandDeckSection = makeCommandDeck({
         commandDeckMass,
         THREE,
@@ -213,68 +142,44 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
     ship.add(commandDeckSection.mesh);
     const endAttachmentPoint = attachmentZ;
 
-
-
-    // what is the width/height of the engine block?
+    // Section dimensions
     const engineBlockWidth = engineBlockSection.width;
     const engineBlockHeight = engineBlockSection.height;
-    // what is the width/height of the cargo section?
     const cargoSectionWidth = cargoSection.width;
     const cargoSectionHeight = cargoSection.height;
-    // what is the width/height of the command deck?
     const commandDeckWidth = commandDeckSection.width;
     const commandDeckHeight = commandDeckSection.height;
-
-    // what is the min width of all the sections?
     const smallestSectionWidth = Math.min(
         engineBlockWidth,
         cargoSectionWidth,
         commandDeckWidth
     );
-    // what is the min height of all the sections?
     const smallestSectionHeight = Math.min(
         engineBlockHeight,
         cargoSectionHeight,
         commandDeckHeight
     );
 
-    // ship core tunnel width height will be random percentage of
-    // the min width/height of all the sections so that the
-    // tunnel is smaller than the smallest section in each dimension
+    // Tunnel dimensions
     const smallestDimension = Math.min(smallestSectionWidth, smallestSectionHeight);
     const tunnelWidth = smallestDimension * rng.range(0.5, 0.9);
-    // const tunnelHeight = smallestSectionHeight * rng.range(0.3, 0.55);
-    // subtrack half the depth of the command deck from the attachmentZ
     const tunnelLength = cargoSection.length + (commandDeckSection.length / 2) + (engineBlockSection.length / 2);
-    // tunnel will be a long rectangle with a width and height that runs the length of the ship
     const cargoPodsPerSegment = cargoSection.podsPerSegment;
     let tunnelFacets = 3;
     if (cargoPodsPerSegment > 3) {
         tunnelFacets = cargoPodsPerSegment;
     }
 
-
-    // const tunnelGeom = new THREE.BoxGeometry(tunnelWidth, tunnelHeight, tunnelLength);
-    // const tunnelMat = new THREE.MeshPhongMaterial({ color: 0x444444, flatShading: true, shininess: 10 });
-    // const tunnelMesh = new THREE.Mesh(tunnelGeom, tunnelMat);
-    // tunnel will be a cylinder with a width and height that runs the length of the ship
+    // Tunnel geometry (cylinder)
     const tunnelGeom = new THREE.CylinderGeometry(tunnelWidth / 2, tunnelWidth / 2, tunnelLength, tunnelFacets);
-    tunnelGeom.rotateX(Math.PI / 2); // Rotate to align with z-axis
-    tunnelGeom.translate(0, 0, -tunnelLength / 2); // Center the cylinder along z-axis
+    tunnelGeom.rotateX(Math.PI / 2);
+    tunnelGeom.translate(0, 0, -tunnelLength / 2);
     const tunnelMat = new THREE.MeshPhongMaterial({ color: 0x666666, flatShading: true, shininess: 10 });
     const tunnelMesh = new THREE.Mesh(tunnelGeom, tunnelMat);
-    // Position the tunnel so it starts at the end of the command deck
-    // and extends back through the ship
-
     tunnelMesh.position.z = attachmentZ - (commandDeckSection.length / 2);
-
-    // tunnelMesh.position.set(0, 0, 0);
-
     ship.add(tunnelMesh);
 
-
-
-    // --- DEBUG: Draw lines at each segment connection point ---
+    // Debug: Draw lines at each segment connection point
     function addDebugLine(z, color = 0xff0000) {
         const mat = new THREE.LineBasicMaterial({ color });
         const points = [
@@ -289,17 +194,12 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
             ship.add(line);
         }
     }
-    // --- DEBUG: Draw lines at each segment connection point ---
-    // After thrusters
     addDebugLine(thrusterAttachmentPoint, 0xff0000); // Red: after thrusters
-    // After engine block
-    addDebugLine(cargoAttachmentPoint, 0x00ff00); // Green: after engine block
-    // After cargo section
+    addDebugLine(cargoAttachmentPoint, 0x00ff00);    // Green: after engine block
     addDebugLine(commandDeckAttachmentPoint, 0x0000ff); // Blue: after cargo
-    // After command deck
-    addDebugLine(endAttachmentPoint, 0xffff00); // Yellow: after command deck
+    addDebugLine(endAttachmentPoint, 0xffff00);      // Yellow: after command deck
 
-    // --- DEBUG: Add a marker at the scene origin (0,0,0) ---
+    // Debug: Add a marker at the scene origin (0,0,0)
     const originMarkerGeom = new THREE.SphereGeometry(0.2, 12, 8);
     const originMarkerMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
     const originMarker = new THREE.Mesh(originMarkerGeom, originMarkerMat);
@@ -315,10 +215,9 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
 
     currentShipRef.current = shipRoot;
     scene.add(shipRoot);
-    // (Remove: currentShipRef.current = ship; scene.add(ship);)
 }
 
-// --- Helper: Get seed from URL or generate new one ---
+// Helper: Get seed from URL or generate new one
 export function getInitialSeed() {
     if (typeof window !== 'undefined' && window.location) {
         const url = new URL(window.location.href);

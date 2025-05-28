@@ -1,7 +1,32 @@
 import { radialThrusterLayout, gridThrusterLayout, offsetGridThrusterLayout } from './thrusterLayouts.js';
 
 // Returns { mesh, length } for the thruster section
-export function makeThrusters({ thrusterCount, thrusterSize, thrusterMaterial, rng, THREE }) {
+export function makeThrusters({ shipMassScalar, totalShipMass, rng, THREE }) {
+    // --- Ship and thruster constants (moved inside) ---
+    const MIN_THRUSTER_COUNT = 1;
+    const MAX_THRUSTER_COUNT = 33;
+    const MAX_THRUSTER_POWER = 250;
+    const MIN_THRUSTER_POWER = 5;
+    // --- Calculate thruster power and count ---
+    const maximumMinThrusterPower = Math.max(MIN_THRUSTER_POWER, totalShipMass / MAX_THRUSTER_COUNT);
+    const minimumMaxThrusterPower = Math.min(MAX_THRUSTER_POWER, totalShipMass / MIN_THRUSTER_COUNT);
+    let thrusterPower = rng.range(maximumMinThrusterPower, minimumMaxThrusterPower);
+    let thrusterCount = Math.ceil(totalShipMass / thrusterPower);
+    thrusterPower = totalShipMass / thrusterCount;
+
+    // --- Map thruster power to a visual thruster size (area-based) ---
+    const THRUSTER_AREA_SCALE = 0.015; // tweak for visual scale
+    const thrusterArea = THRUSTER_AREA_SCALE * thrusterPower;
+    let thrusterSize = 2 * Math.sqrt(thrusterArea / Math.PI); // diameter
+
+    // --- Thruster color/material ---
+    const thrusterColor = new THREE.Color().setHSL(rng.random(), 0.5, 0.3);
+    const thrusterMaterial = new THREE.MeshPhongMaterial({
+        color: thrusterColor,
+        flatShading: true,
+        shininess: 30
+    });
+
     // --- Layout selection logic moved from shipgen.js ---
     let thrusterPositions;
     let isRadial = false;
@@ -48,5 +73,5 @@ export function makeThrusters({ thrusterCount, thrusterSize, thrusterMaterial, r
         thrusterMesh.add(glowMesh);
         group.add(thrusterMesh);
     }
-    return { mesh: group, length: thrusterDepth, isRadial, thrusterPositions };
+    return { mesh: group, length: thrusterDepth, isRadial, thrusterPositions, thrusterSize };
 }
