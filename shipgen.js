@@ -74,22 +74,52 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
             if (child.material) child.material.dispose();
         });
     }
+
     const rng = new SeededRandom(seed);
     const ship = new THREE.Group();
 
     // 1. Pick ship mass randomly within range
-    // const shipMassScalar = Math.pow(rng.random(), 4); // Bias towards smaller ships
-    const shipMassScalar = rng.random(); // Bias towards smaller ships
+    //    this is a unit interval [0, 1] that represents the 'ship size' in a normalized way
+    //
+    const shipMassScalar = Math.pow(rng.random(), 4); // Bias towards smaller ships
+    // const shipMassScalar = rng.random(); // Bias towards smaller ships
+    // const shipMassScalar = 0.5;
+
+    // First - make a cargo section for a ship given the overall mass scalar...
+    //         there will be some conditional variation in the cargo section
+    //         based on the ship mass scalar, but it will always be a cargo section
+    //
+    //         part of the return value will be an explicit MASS value for the cargo section
+
+    const targetTotalShipMass = SHIP_MIN_MASS + shipMassScalar * (SHIP_MAX_MASS - SHIP_MIN_MASS);
+
+
+    // const cargoBlockMass = totalShipMass * cargoMassRatio;
+    const cargoSection = makeCargoSection({
+        shipMassScalar,
+        THREE,
+        rng
+    });
+
+    const cargoMass = cargoSection.mass; // Get the mass of the cargo section
+
+
+    // choose a mass for the engine block and command deck
+
+    console.info(targetTotalShipMass, cargoMass);
 
     // 1.a calculate mass ratios for ship sections
     // for LARGE ships the command deck will be relatively smaller
     const commandDeckMassRatio = 0.01 + rng.weightedRandom((1-shipMassScalar) * 0.2);
     const engineMassRatio = 0.02 + rng.weightedRandom((1-shipMassScalar) * 0.4);
-    const cargoMassRatio = 1 - engineMassRatio - commandDeckMassRatio;
+    const commandDeckMass = targetTotalShipMass * commandDeckMassRatio;
+    const engineBlockMass = targetTotalShipMass * engineMassRatio;
+
+    const totalShipMass = cargoMass + commandDeckMass + engineBlockMass;
+    console.info('Total Ship Mass:', totalShipMass);
+    // const cargoMassRatio = 1 - engineMassRatio - commandDeckMassRatio;
 
     // --- End 1.a ---
-
-    const totalShipMass = SHIP_MIN_MASS + shipMassScalar * (SHIP_MAX_MASS - SHIP_MIN_MASS);
 
     // 2. Pick thruster power within a dynamic range for this mass
     const maximumMinThrusterPower = Math.max(MIN_THRUSTER_POWER, totalShipMass / MAX_THRUSTER_COUNT);
@@ -142,7 +172,12 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
     }
 
     let attachmentZ = 0;
-    const thrusterDepth = thrusterSize / 3;
+    const thrusterDepth = thrusterSize / rng.range(0.5, 4); // Depth based on size, more variation
+
+
+
+
+
     // --- Modular Thruster Section ---
     const thrusterSection = makeThrusters({
         thrusterPositions,
@@ -156,8 +191,13 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
     attachmentZ = thrusterSection.length;
     const thrusterAttachmentPoint = attachmentZ; // Save thruster attachment point
 
+
+
+
+
+
     // --- Modular Engine Block ---
-    const engineBlockMass = totalShipMass * engineMassRatio;
+    // const engineBlockMass = totalShipMass * engineMassRatio;
 
     const engineBlockSection = makeEngineBlock({
         isRadial,
@@ -167,26 +207,32 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
         THREE,
         rng
     });
+
     // Place so the BACK of the engine block is at attachmentZ
     engineBlockSection.mesh.position.z = attachmentZ;
     attachmentZ += engineBlockSection.length;
     const cargoAttachmentPoint = attachmentZ; // Update cargo attachment point
     ship.add(engineBlockSection.mesh);
 
+
+
+
+
     // --- Modular Cargo Section ---
-    const cargoBlockMass = totalShipMass * cargoMassRatio;
-    const cargoSection = makeCargoSection({
-        cargoBlockMass,
-        THREE,
-        rng
-    });
+
     cargoSection.mesh.position.z = attachmentZ;
     attachmentZ += cargoSection.length;
+
     const commandDeckAttachmentPoint = attachmentZ; // Update command deck attachment point
     ship.add(cargoSection.mesh);
 
+
+
+
+
+
     // --- Modular Command Deck ---
-    const commandDeckMass = totalShipMass * commandDeckMassRatio;
+    // const commandDeckMass = totalShipMass * commandDeckMassRatio;
     const commandDeckSection = makeCommandDeck({
         commandDeckMass,
         THREE,
