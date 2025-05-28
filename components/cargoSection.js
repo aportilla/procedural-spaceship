@@ -106,7 +106,6 @@ function createPod({ mass, shape, rng, THREE }) {
         case 'cylinder': {
             const aspectCyl = rng.range(0.3, 0.9);
             let podDepth = Math.cbrt(mass / (Math.PI * aspectCyl * aspectCyl));
-            // podDepth = Math.max(0.3, Math.min(podDepth, 100));
             const podRadius = aspectCyl * podDepth;
             dimensions = { width: podRadius * 2, height: podRadius * 2, depth: podDepth, aspectCyl };
             podGeom = new THREE.CylinderGeometry(podRadius, podRadius, podDepth, 8);
@@ -116,10 +115,11 @@ function createPod({ mass, shape, rng, THREE }) {
         }
         case 'sphere': {
             let podRadius = Math.cbrt(3 * mass / (4 * Math.PI));
-            // podRadius = Math.max(0.3, Math.min(podRadius, 100));
             dimensions = { width: podRadius * 2, height: podRadius * 2, depth: 2 * podRadius, podRadius };
-            podGeom = new THREE.SphereGeometry(podRadius, 6, 4);
-            podGeom.rotateZ(-Math.PI / 2);
+            const circumference = 2 * Math.PI * podRadius;
+            const widthSegments = Math.max(4,Math.floor(circumference * 0.6));
+            const heightSegments = Math.max(2,Math.round(widthSegments / 2));
+            podGeom = new THREE.SphereGeometry(podRadius, widthSegments, heightSegments);
             podGeom.translate(0, 0, podRadius);
             break;
         }
@@ -132,7 +132,7 @@ function createPod({ mass, shape, rng, THREE }) {
 }
 
 // --- Layout functions ---
-function layoutRadial({ podMesh, podsPerSegment, podDimensions, THREE }) {
+function layoutRadial({ podMesh, podsPerSegment, podDimensions, THREE, rng, doRotation }) {
     const group = new THREE.Group();
     let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
     let minX = Infinity, minY = Infinity, minZ = Infinity;
@@ -140,14 +140,33 @@ function layoutRadial({ podMesh, podsPerSegment, podDimensions, THREE }) {
     let minRadius = podRadius / Math.sin(Math.PI / podsPerSegment);
     let gap = 0.05 * podRadius;
     let radius = podsPerSegment === 2 ? podRadius * 1.2 : minRadius + gap;
+    const randomConst = rng.random();
+    // podMesh.rotateZ(-Math.PI / 2);
+
     for (let i = 0; i < podsPerSegment; i++) {
         const pod = podMesh.clone();
         const angle = (i / podsPerSegment) * Math.PI * 2 + Math.PI / 2;
         const x = Math.cos(angle) * radius;
         const y = Math.sin(angle) * radius;
         pod.position.set(x, y, 0);
-        pod.rotation.z = angle;
+        if (doRotation) {
+            pod.rotation.z = angle;
+        }
         group.add(pod);
+
+        // if the pod has been placed more than its own radius distance away from the center
+        // then we should add a thin cylinder oriented to connect the center of the pod to the center of the axis...
+        if (radius > podRadius) {
+            const widthOfConnector = 0.1 + (podRadius / 4) * randomConst;
+            const cylinderGeom = new THREE.CylinderGeometry(widthOfConnector, widthOfConnector, radius, 4);
+            const cylinderMat = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 });
+            const cylinderMesh = new THREE.Mesh(cylinderGeom, cylinderMat);
+            cylinderMesh.position.set(x / 2, y / 2, podRadius);
+            cylinderMesh.rotateZ(angle + Math.PI / 2);
+            group.add(cylinderMesh);
+        }
+
+
         maxX = Math.max(maxX, x + podDimensions.width / 2);
         minX = Math.min(minX, x - podDimensions.width / 2);
         maxY = Math.max(maxY, y + podDimensions.height / 2);
@@ -209,7 +228,7 @@ function layoutGrid({ podMesh, podsPerSegment, podDimensions, THREE }) {
 }
 
 // --- Segment mesh builder ---
-function makeSegmentMesh({ podMesh, podDimensions, podsPerSegment, rng, THREE }) {
+function makeSegmentMesh({ podMesh, podDimensions, podsPerSegment, rng, THRE, doRotation }) {
     if (podsPerSegment === 1) {
         // Single pod on axis
         // const { mesh: pod, dimensions } = createPod({ mass: segmentMass, shape: podShape, rng, THREE });
@@ -227,7 +246,7 @@ function makeSegmentMesh({ podMesh, podDimensions, podsPerSegment, rng, THREE })
         // const podMass = segmentMass / podsPerSegment;
         // const { mesh: podMesh, dimensions } = createPod({ mass: podMass, shape: podShape, rng, THREE });
         if (arrangement === 'radial') {
-            return layoutRadial({ podMesh, podsPerSegment, podDimensions, THREE });
+            return layoutRadial({ podMesh, podsPerSegment, podDimensions, THREE, rng, doRotation });
         } else {
             return layoutGrid({ podMesh, podsPerSegment, podDimensions, THREE });
         }
@@ -256,7 +275,7 @@ export function makeCargoSection({ shipMassScalar, THREE, rng }) {
     const podMass = getClosestPodMass(targetPodMass);
     const podShape = getPodShape(rng);
     const totalCargoMass = podMass * podsPerSegment * segmentCount;
-
+    const doRotation = rng.random() < 0.5; // 50% chance to rotate pods in segments
     const { mesh: podMesh, dimensions: podDimensions } = createPod({ mass: podMass, shape: podShape, rng, THREE })
 
     // --- Add optional leading edge gap with tunnel connector ---
@@ -268,7 +287,7 @@ export function makeCargoSection({ shipMassScalar, THREE, rng }) {
     }
 
     // --- Build a single segment mesh (to be cloned for each segment) ---
-    const segment = makeSegmentMesh({ podMesh, podDimensions, podsPerSegment, rng, THREE });
+    const segment = makeSegmentMesh({ podMesh, podDimensions, podsPerSegment, rng, THREE, doRotation });
     const segmentMesh = segment.mesh;
     const cargoSectionWidth = segment.width;
     const cargoSectionHeight = segment.height;
@@ -288,7 +307,7 @@ export function makeCargoSection({ shipMassScalar, THREE, rng }) {
     let segmentAngleOffsetDelta = 0;
     // Only apply offset for radial arrangement
     if (cargoSectionLayout === 'radial') {
-        if (rng.random() < 0.5) {
+        if (doRotation) {
             segmentAngleOffsetDelta = (Math.PI / podsPerSegment);
         }
     }
@@ -316,6 +335,7 @@ export function makeCargoSection({ shipMassScalar, THREE, rng }) {
         mesh: cargoSection,
         length: totalLength,
         width: cargoSectionWidth,
-        height: cargoSectionHeight
+        height: cargoSectionHeight,
+        podsPerSegment: podsPerSegment
     };
 }

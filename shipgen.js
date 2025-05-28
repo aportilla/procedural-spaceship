@@ -106,7 +106,7 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
 
     // choose a mass for the engine block and command deck
 
-    console.info(targetTotalShipMass, cargoMass);
+    // console.info(targetTotalShipMass, cargoMass);
 
     // 1.a calculate mass ratios for ship sections
     // for LARGE ships the command deck will be relatively smaller
@@ -116,7 +116,7 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
     const engineBlockMass = targetTotalShipMass * engineMassRatio;
 
     const totalShipMass = cargoMass + commandDeckMass + engineBlockMass;
-    console.info('Total Ship Mass:', totalShipMass);
+    // console.info('Total Ship Mass:', totalShipMass);
     // const cargoMassRatio = 1 - engineMassRatio - commandDeckMassRatio;
 
     // --- End 1.a ---
@@ -143,54 +143,24 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
         shininess: 30
     });
 
-    let isRadial = false;
-    let thrusterPositions;
-    if (thrusterCount >= 7 && rng.random() < 0.5) {
-        const offset = offsetGridThrusterLayout(thrusterCount, thrusterSize, rng);
-        if (offset) {
-            thrusterPositions = offset;
-        } else {
-            const grid = gridThrusterLayout(thrusterCount, thrusterSize, rng);
-            if (grid) {
-                thrusterPositions = grid;
-            } else {
-                isRadial = true;
-                thrusterPositions = radialThrusterLayout(thrusterCount, thrusterSize, rng);
-            }
-        }
-    } else if (thrusterCount > 3 && rng.random() < 0.5) {
-        const grid = gridThrusterLayout(thrusterCount, thrusterSize, rng);
-        if (grid) {
-            thrusterPositions = grid;
-        } else {
-            isRadial = true;
-            thrusterPositions = radialThrusterLayout(thrusterCount, thrusterSize, rng);
-        }
-    } else {
-        isRadial = true;
-        thrusterPositions = radialThrusterLayout(thrusterCount, thrusterSize, rng);
-    }
-
     let attachmentZ = 0;
-    const thrusterDepth = thrusterSize / rng.range(0.5, 4); // Depth based on size, more variation
-
-
-
-
 
     // --- Modular Thruster Section ---
     const thrusterSection = makeThrusters({
-        thrusterPositions,
+        thrusterCount,
         thrusterSize,
-        thrusterDepth,
         thrusterMaterial,
+        rng,
         THREE
     });
     thrusterSection.mesh.position.z = 0;
     ship.add(thrusterSection.mesh);
     attachmentZ = thrusterSection.length;
     const thrusterAttachmentPoint = attachmentZ; // Save thruster attachment point
+    const isRadial = thrusterSection.isRadial;
+    const thrusterPositions = thrusterSection.thrusterPositions;
 
+    const thrusterDepth = thrusterSize / rng.range(0.5, 4); // Depth based on size, more variation
 
 
 
@@ -271,20 +241,34 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
     // ship core tunnel width height will be random percentage of
     // the min width/height of all the sections so that the
     // tunnel is smaller than the smallest section in each dimension
-
-    const tunnelWidth = smallestSectionWidth * rng.range(0.3, 0.55);
-    const tunnelHeight = smallestSectionHeight * rng.range(0.3, 0.55);
+    const smallestDimension = Math.min(smallestSectionWidth, smallestSectionHeight);
+    const tunnelWidth = smallestDimension * rng.range(0.5, 0.9);
+    // const tunnelHeight = smallestSectionHeight * rng.range(0.3, 0.55);
     // subtrack half the depth of the command deck from the attachmentZ
-    const tunnelLength = attachmentZ - commandDeckSection.length / 2;
+    const tunnelLength = cargoSection.length + (commandDeckSection.length / 2) + (engineBlockSection.length / 2);
     // tunnel will be a long rectangle with a width and height that runs the length of the ship
+    const cargoPodsPerSegment = cargoSection.podsPerSegment;
+    let tunnelFacets = 3;
+    if (cargoPodsPerSegment > 3) {
+        tunnelFacets = cargoPodsPerSegment;
+    }
 
 
-
-    const tunnelGeom = new THREE.BoxGeometry(tunnelWidth, tunnelHeight, tunnelLength);
-    const tunnelMat = new THREE.MeshPhongMaterial({ color: 0x444444, flatShading: true, shininess: 10 });
+    // const tunnelGeom = new THREE.BoxGeometry(tunnelWidth, tunnelHeight, tunnelLength);
+    // const tunnelMat = new THREE.MeshPhongMaterial({ color: 0x444444, flatShading: true, shininess: 10 });
+    // const tunnelMesh = new THREE.Mesh(tunnelGeom, tunnelMat);
+    // tunnel will be a cylinder with a width and height that runs the length of the ship
+    const tunnelGeom = new THREE.CylinderGeometry(tunnelWidth / 2, tunnelWidth / 2, tunnelLength, tunnelFacets);
+    tunnelGeom.rotateX(Math.PI / 2); // Rotate to align with z-axis
+    tunnelGeom.translate(0, 0, -tunnelLength / 2); // Center the cylinder along z-axis
+    const tunnelMat = new THREE.MeshPhongMaterial({ color: 0x666666, flatShading: true, shininess: 10 });
     const tunnelMesh = new THREE.Mesh(tunnelGeom, tunnelMat);
+    // Position the tunnel so it starts at the end of the command deck
+    // and extends back through the ship
 
-    tunnelMesh.position.set(0, 0, attachmentZ / 2);
+    tunnelMesh.position.z = attachmentZ - (commandDeckSection.length / 2);
+
+    // tunnelMesh.position.set(0, 0, 0);
 
     ship.add(tunnelMesh);
 

@@ -1,6 +1,37 @@
-// /components/thrusters.js
+import { radialThrusterLayout, gridThrusterLayout, offsetGridThrusterLayout } from './thrusterLayouts.js';
+
 // Returns { mesh, length } for the thruster section
-export function makeThrusters({ thrusterPositions, thrusterSize, thrusterDepth, thrusterMaterial, THREE }) {
+export function makeThrusters({ thrusterCount, thrusterSize, thrusterMaterial, rng, THREE }) {
+    // --- Layout selection logic moved from shipgen.js ---
+    let thrusterPositions;
+    let isRadial = false;
+    if (thrusterCount >= 7 && rng.random() < 0.5) {
+        const offset = offsetGridThrusterLayout(thrusterCount, thrusterSize, rng);
+        if (offset) {
+            thrusterPositions = offset;
+        } else {
+            const grid = gridThrusterLayout(thrusterCount, thrusterSize, rng);
+            if (grid) {
+                thrusterPositions = grid;
+            } else {
+                isRadial = true;
+                thrusterPositions = radialThrusterLayout(thrusterCount, thrusterSize, rng);
+            }
+        }
+    } else if (thrusterCount > 3 && rng.random() < 0.5) {
+        const grid = gridThrusterLayout(thrusterCount, thrusterSize, rng);
+        if (grid) {
+            thrusterPositions = grid;
+        } else {
+            isRadial = true;
+            thrusterPositions = radialThrusterLayout(thrusterCount, thrusterSize, rng);
+        }
+    } else {
+        isRadial = true;
+        thrusterPositions = radialThrusterLayout(thrusterCount, thrusterSize, rng);
+    }
+
+    const thrusterDepth = thrusterSize / rng.range(0.5, 4); // Depth based on size, more variation
     const group = new THREE.Group();
     for (const pos of thrusterPositions) {
         const thrusterGeom = new THREE.CylinderGeometry(thrusterSize * 0.5, thrusterSize * 0.5, thrusterDepth, 4);
@@ -17,5 +48,5 @@ export function makeThrusters({ thrusterPositions, thrusterSize, thrusterDepth, 
         thrusterMesh.add(glowMesh);
         group.add(thrusterMesh);
     }
-    return { mesh: group, length: thrusterDepth };
+    return { mesh: group, length: thrusterDepth, isRadial, thrusterPositions };
 }
