@@ -34,10 +34,13 @@ export function makeEngineBlock({ isRadial, thrusterPositions, thrusterSize, eng
 
         const forwardRadius = engineRadius * forwardTaperAmount;
         const rearRadius = engineRadius;
-
+        const circumference = 2 * Math.PI * rearRadius;
+        const polySegments = Math.max(4,Math.floor(circumference * 0.6));
         // D = 3V / [π(rA² + rA·rB + rB²)]
         engineBlockDepth = (3 * engineBlockMass) / (Math.PI * (forwardRadius * forwardRadius + forwardRadius * rearRadius + rearRadius * rearRadius));
-        engineBlockGeom = new THREE.CylinderGeometry(forwardRadius, rearRadius, engineBlockDepth, 8);
+
+
+        engineBlockGeom = new THREE.CylinderGeometry(forwardRadius, rearRadius, engineBlockDepth, polySegments);
         engineBlockGeom.rotateX(Math.PI / 2);
         // Shift geometry so rear face is at z=0
         engineBlockGeom.translate(0, 0, engineBlockDepth / 2);

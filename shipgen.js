@@ -98,7 +98,6 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
 
     // Thruster section
     const thrusterSection = makeThrusters({
-        shipMassScalar,
         totalShipMass,
         rng,
         THREE
