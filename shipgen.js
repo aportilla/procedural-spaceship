@@ -165,7 +165,7 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
     const tunnelWidth = smallestDimension * rng.range(0.5, 0.9);
     const tunnelLength = cargoSection.length + (commandDeckSection.length / 2) + (engineBlockSection.length / 2);
     const cargoPodsPerSegment = cargoSection.podsPerSegment;
-    let tunnelFacets = 3;
+    let tunnelFacets = Math.floor(rng.range(3, 6));
     if (cargoPodsPerSegment > 3) {
         tunnelFacets = cargoPodsPerSegment;
     }

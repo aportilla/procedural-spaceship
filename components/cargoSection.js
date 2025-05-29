@@ -1,4 +1,3 @@
-
 // static definition
 // of prefabricated modular cargo pods...
 const prefabCargoPodVolume = [
@@ -49,23 +48,14 @@ function howManySegmentsOfCargo(shipSizeScalar, rng) {
 
 function howManyPodsPerSegment(shipSizeScalar, rng) {
     let result = 1;
-    if (shipSizeScalar <= 0.2) {
+    if (shipSizeScalar <= 0.3) {
         result = Math.floor(rng.range(1, 2));
-    } else if (shipSizeScalar <= 0.4) {
-        result = Math.floor(rng.range(2, 4));
     } else if (shipSizeScalar <= 0.6) {
-        result = Math.floor(rng.range(2, 8));
+        result = Math.floor(rng.range(1, 4));
     } else if (shipSizeScalar <= 0.8) {
-        result = Math.floor(rng.range(2, 11));
+        result = Math.floor(rng.range(2, 8));
     } else {
-        result = Math.floor(rng.range(2, 13));
-    }
-
-    if (result > 10) {
-        // ensure larger results are multiples of 2 or 3
-        if (result % 2 !== 0 && result % 3 !== 0) {
-            result = Math.floor(result / 2) * 2; // round down to nearest even number
-        }
+        result = Math.floor(rng.range(2, 11));
     }
 
     return result;
@@ -85,6 +75,40 @@ function generateBoxDimensions(volume, bottomRatio, sideRatio) {
     return { width, depth, height };
 }
 
+function makeConeGeometry(volume, aspectRatio, taperRatio = 0.5) {
+  // taperRatio = smallRadius / bigRadius (default 0.5)
+
+  // From volume formula and aspect ratio constraint:
+  // V = (π × AR × R³ / 3) × (1 + k + k²)
+  // where R = bigRadius, k = taperRatio, AR = aspectRatio
+
+  const k = taperRatio;
+  const shapeFactor = 1 + k + k*k;
+
+  const bigRadius = Math.pow(
+    (3 * volume) / (Math.PI * aspectRatio * shapeFactor),
+    1/3
+  );
+
+  const smallRadius = bigRadius * taperRatio;
+  const depth = bigRadius * aspectRatio;
+
+  return { smallRadius, bigRadius, depth };
+}
+
+// we use a fixed set of box shapes
+// so that our large collection of cargo pods
+// will have consistent dimensions across
+// different ships and segments
+
+// these are back-aspect,top-aspect tuples
+const boxShapes = [
+    [1/2.5, 8/9],
+    [8/9, 1/2.5],
+    [1,1],
+    [1,1/2],
+    [1/2, 1]
+];
 
 // --- Pod creation factory ---
 function createPod({ mass, shape, rng, THREE }) {
@@ -92,11 +116,44 @@ function createPod({ mass, shape, rng, THREE }) {
     let dimensions;
     let podGeom;
     switch (shape) {
+        case 'barrel': {
+
+            const podVolume = mass;
+            const aspectRatio = rng.range(1,2); // Random aspect ratio for the barrel
+            const taperRatio = rng.range(0.4,0.8); // Random taper for the barrel
+            const { smallRadius, bigRadius, depth } = makeConeGeometry(podVolume,aspectRatio,taperRatio);
+            const circumference = 2 * Math.PI * bigRadius;
+            const polySegments = Math.max(4,Math.floor(circumference * 0.6));
+            // Top cone
+            const topGeom = new THREE.CylinderGeometry(smallRadius, bigRadius, depth, polySegments);
+            // Bottom cone
+            const bottomGeom = new THREE.CylinderGeometry(bigRadius, smallRadius, depth, polySegments);
+
+            topGeom.rotateX(Math.PI / 2);
+            topGeom.translate(0, 0, depth * 1.5);
+            bottomGeom.rotateX(Math.PI / 2);
+            bottomGeom.translate(0, 0, depth / 2);
+
+            // Create meshes for each side
+            const podMat = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 });
+            const topMesh = new THREE.Mesh(topGeom, podMat);
+            const bottomMesh = new THREE.Mesh(bottomGeom, podMat);
+            // Group both sides
+            const group = new THREE.Group();
+            group.add(topMesh);
+            group.add(bottomMesh);
+            group.position.z = depth;
+            dimensions = { width: bigRadius * 2, height: bigRadius * 2, depth: depth * 2, maxRadius: bigRadius, endRadius: smallRadius };
+            return { mesh: group, dimensions };
+        }
         case 'box': {
-            // const aspectA = rng.range(0.3, 1);
-            // const aspectB = rng.range(0.3, 1);
-            const aspectA = 1/2.5; // top face of box
-            const aspectB = 8/9; // back face of box
+
+            // choose a random box shape from the predefined set
+            const [aspectA,aspectB] = boxShapes[Math.floor(rng.range(0, boxShapes.length))];
+
+
+            // const aspectA = 1/2.5; // top face of box
+            // const aspectB = 8/9; // back face of box
             const { width, depth, height } = generateBoxDimensions(mass, aspectA, aspectB);
             dimensions = { width, height, depth, aspectA, aspectB };
             podGeom = new THREE.BoxGeometry(width, height, depth);
@@ -120,6 +177,10 @@ function createPod({ mass, shape, rng, THREE }) {
             const widthSegments = Math.max(4,Math.floor(circumference * 0.6));
             const heightSegments = Math.max(2,Math.round(widthSegments / 2));
             podGeom = new THREE.SphereGeometry(podRadius, widthSegments, heightSegments);
+            podGeom.rotateY(Math.PI / 2);
+            podGeom.rotateX(Math.PI / 2);
+            // rotate z by the angle of the facet size..
+            // podGeom.rotateZ(Math.PI / widthSegments);
             podGeom.translate(0, 0, podRadius);
             break;
         }
@@ -156,12 +217,12 @@ function layoutRadial({ podMesh, podsPerSegment, podDimensions, THREE, rng, doRo
 
         // if the pod has been placed more than its own radius distance away from the center
         // then we should add a thin cylinder oriented to connect the center of the pod to the center of the axis...
-        if (radius > podRadius) {
+        if (radius > podRadius * 1.5) {
             const widthOfConnector = 0.1 + (podRadius / 4) * randomConst;
             const cylinderGeom = new THREE.CylinderGeometry(widthOfConnector, widthOfConnector, radius, 4);
             const cylinderMat = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 });
             const cylinderMesh = new THREE.Mesh(cylinderGeom, cylinderMat);
-            cylinderMesh.position.set(x / 2, y / 2, podRadius);
+            cylinderMesh.position.set(x / 2, y / 2, podDimensions.depth / 2);
             cylinderMesh.rotateZ(angle + Math.PI / 2);
             group.add(cylinderMesh);
         }
@@ -253,13 +314,12 @@ function makeSegmentMesh({ podMesh, podDimensions, podsPerSegment, rng, THRE, do
     }
 }
 
+
+const podShapes = ['box','box','cylinder','cylinder','sphere', 'barrel'];
 function getPodShape(rng) {
-    const podShapeRand = rng.random();
-    let podShape;
-    if (podShapeRand < 0.33) podShape = 'box';
-    else if (podShapeRand < 0.66) podShape = 'cylinder';
-    else podShape = 'sphere';
-    return podShape;
+    // Randomly choose a pod shape
+    const index = Math.floor(rng.random() * podShapes.length);
+    return podShapes[index];
 }
 
 export function makeCargoSection({ shipMassScalar, THREE, rng }) {
