@@ -24,6 +24,72 @@ function makeTaperedCylinderGeometry(volume, aspectRatio, taperRatio = 0.5) {
 }
 
 
+function addWindows(parentMesh, boxWidth, boxHeight, boxDepth, rng, THREE) {
+    // Window dimensions - larger height for better visibility
+    const windowHeight = 0.12;
+    const windowDepth = 0.001; // Very thin for flat appearance
+
+    // Create window material (dark, non-reflective)
+    const windowMaterial = new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        side: THREE.DoubleSide
+    });
+
+    // Create a group for all windows
+    const windowGroup = new THREE.Group();
+
+    // Calculate available space (leave margins on edges)
+    const margin = 0; // Minimum margin from edges
+    const availableWidth = boxWidth - (margin * 2);
+    const availableHeight = boxHeight - (margin * 2);
+
+    // Check if we have enough vertical space for windows
+    if (availableHeight < windowHeight) {
+        // Box too short for windows
+        return;
+    }
+
+    // Random aspect ratio for rectangles
+    const aspectRatio = 0.5 + rng.random() * 1.5; // 0.5 to 2
+    const windowFrameWidth = 0.02 + rng.random() * 0.05;
+    const windowWidth = Math.min((availableWidth - (windowFrameWidth * 2)),windowHeight * aspectRatio);
+    const windowSpacing = windowWidth + windowFrameWidth;
+
+    // Calculate maximum number of rectangles that can fit
+    const maxRectangles = Math.floor(availableWidth / windowSpacing);
+
+    // Pick a number within our limits (2 to 9, but not exceeding available space)
+    const minWindows = Math.ceil(maxRectangles/4);
+    const maxWindows = Math.min(21, maxRectangles);
+
+    if (maxWindows < minWindows) {
+        console.warn('Not enough space for minimum windows');
+        // Not enough space for minimum windows
+        return;
+    }
+
+    const windowCount = Math.floor(rng.random() * (maxWindows - minWindows + 1)) + minWindows;
+
+    // calculate a random vertical placement of the windows on the face of the box..
+    const verticalOffset = boxHeight * (-0.3 + rng.random() * 0.6); // Centered vertically, but can be offset
+
+    for (let i = 0; i < windowCount; i++) {
+        const xOffset = (i - (windowCount - 1) / 2) * windowSpacing;
+
+        const window = new THREE.Mesh(
+            new THREE.BoxGeometry(windowWidth, windowHeight, windowDepth),
+            windowMaterial
+        );
+        // console.info(`Adding window ${i + 1}/${windowCount} at xOffset: ${xOffset}`);
+        window.position.set(xOffset, verticalOffset, boxDepth + 0.001);
+        windowGroup.add(window);
+    }
+
+
+    // Add the window group to the parent mesh
+    parentMesh.add(windowGroup);
+}
+
 
 const commandDeckShapes = ['box','box','cylinder', 'cylinder', 'hammerheadCylinder', 'sphere'];
 // const commandDeckShapes = ['cylinder'];
@@ -56,18 +122,20 @@ export function makeCommandDeck({ commandDeckMass, THREE, rng }) {
         commandDeckHeight = deckHeight;
 
         mesh = new THREE.Group();
-        mesh.add(boxMesh);
 
 
-        const randomPortSize = rng.range(0.05, 0.1);
-        const bridgeWidth = Math.max(0.3,rng.range(0.2, 0.5) * deckWidth);
-        const crossGeom = new THREE.CylinderGeometry(randomPortSize, randomPortSize, bridgeWidth, 4);
-        crossGeom.translate(0, 0, commandDeckDepth);
-        const crossMesh = new THREE.Mesh(crossGeom, commandDeckMat);
-        crossMesh.rotateZ(Math.PI / 2);
+        // const randomPortSize = rng.range(0.05, 0.1);
+        // const bridgeWidth = Math.max(0.3,rng.range(0.2, 0.5) * deckWidth);
+        // const crossGeom = new THREE.CylinderGeometry(randomPortSize, randomPortSize, bridgeWidth, 4);
+        // crossGeom.translate(0, 0, commandDeckDepth);
+        // const crossMesh = new THREE.Mesh(crossGeom, commandDeckMat);
+        // crossMesh.rotateZ(Math.PI / 2);
             // crossMesh.position.y = deckHeight * 0.5;
 
-        mesh.add(crossMesh);
+        mesh.add(boxMesh);
+        addWindows(mesh, deckWidth, deckHeight, commandDeckDepth, rng, THREE);
+
+        // mesh.add(crossMesh);
 
     } else if (commandDeckShape === 'cylinder') {
 

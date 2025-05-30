@@ -220,11 +220,11 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
     addDebugLine(endAttachmentPoint, 0xffff00);      // Yellow: after command deck
 
     // Debug: Add a marker at the scene origin (0,0,0)
-    const originMarkerGeom = new THREE.SphereGeometry(0.2, 12, 8);
-    const originMarkerMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
-    const originMarker = new THREE.Mesh(originMarkerGeom, originMarkerMat);
-    originMarker.position.set(0, 0, 0);
-    scene.add(originMarker);
+    // const originMarkerGeom = new THREE.SphereGeometry(0.2, 12, 8);
+    // const originMarkerMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
+    // const originMarker = new THREE.Mesh(originMarkerGeom, originMarkerMat);
+    // originMarker.position.set(0, 0, 0);
+    // scene.add(originMarker);
 
     // Center the ship so its midpoint is at z=0
     ship.position.z = -endAttachmentPoint / 2;
