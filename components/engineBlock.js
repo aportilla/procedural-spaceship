@@ -3,6 +3,9 @@
 
 export function makeEngineBlock({ isRadial, thrusterPositions, thrusterSize, engineBlockMass, THREE, rng }) {
     // 1. Find bounding box of thruster positions
+
+    let boundingBoxPaddingScalar = rng.random() * 0.2 + 0.1; // Random padding between 10% and 30%
+
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     for (const pos of thrusterPositions) {
         if (pos.x < minX) minX = pos.x;
@@ -10,11 +13,14 @@ export function makeEngineBlock({ isRadial, thrusterPositions, thrusterSize, eng
         if (pos.y < minY) minY = pos.y;
         if (pos.y > maxY) maxY = pos.y;
     }
-    const pad = thrusterSize * 0.6;
+    // console.info('thrusterSize',thrusterSize);
+    const pad = (thrusterSize / 2) + boundingBoxPaddingScalar * (3 / thrusterPositions.length);
+    // console.info('pad', pad);
     minX -= pad; maxX += pad; minY -= pad; maxY += pad;
     const width = maxX - minX;
     const height = maxY - minY;
 
+    // console.info('width', width, 'height', height);
     let engineBlockGeom, engineBlockMat, engineBlockDepth, mesh;
     if (isRadial) {
         // Cylinder engine block
@@ -32,8 +38,8 @@ export function makeEngineBlock({ isRadial, thrusterPositions, thrusterSize, eng
             forwardTaperAmount = 0.75 + rng.random() * 0.25; // 75% to 100% of rear radius
         }
 
-        const forwardRadius = engineRadius * forwardTaperAmount;
-        const rearRadius = engineRadius;
+        const rearRadius = engineRadius + pad;
+        const forwardRadius = rearRadius * forwardTaperAmount;
         const circumference = 2 * Math.PI * rearRadius;
         const polySegments = Math.max(4,Math.floor(circumference * 0.6));
         // D = 3V / [π(rA² + rA·rB + rB²)]

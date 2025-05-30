@@ -31,43 +31,34 @@ export function makeThrusters({ totalShipMass, rng, THREE }) {
         shininess: 30
     });
 
-    // --- Layout selection logic
-    let thrusterPositions;
-    let isRadial = false;
-    // If we have a lot of thrusters (7 or more), and randomly decide to, try offset grid layout first for more visual interest
-    if (thrusterCount >= 7 && rng.random() < 0.5) {
-        const offset = offsetGridThrusterLayout(thrusterCount, thrusterNozzelDiameter, rng);
-        if (offset) {
-            // Use offset grid if possible (preferred for large thruster counts)
-            thrusterPositions = offset;
-        } else {
-            // If offset grid fails, try regular grid layout
-            const grid = gridThrusterLayout(thrusterCount, thrusterNozzelDiameter, rng);
-            if (grid) {
-                // Use grid if possible
-                thrusterPositions = grid;
-            } else {
-                // Fallback: use radial layout if grid layouts are not possible
-                isRadial = true;
-                thrusterPositions = radialThrusterLayout(thrusterCount, thrusterNozzelDiameter, rng);
+    // --- Layout selection logic (refactored for clarity) ---
+    function pickLayout(thrusterCount, thrusterNozzelDiameter, rng) {
+        // For large counts, try offset grid, then grid, then radial
+        if (thrusterCount >= 7) {
+            if (rng.random() < 0.5) {
+                const offset = offsetGridThrusterLayout(thrusterCount, thrusterNozzelDiameter, rng);
+                if (offset) return { positions: offset, isRadial: false };
             }
+            const grid = gridThrusterLayout(thrusterCount, thrusterNozzelDiameter, rng);
+            if (grid) return { positions: grid, isRadial: false };
+            // Fallback
+            return { positions: radialThrusterLayout(thrusterCount, thrusterNozzelDiameter, rng), isRadial: true };
         }
-    // For moderate thruster counts (>3), sometimes try grid layout for variety
-    } else if (thrusterCount > 3 && rng.random() < 0.5) {
-        const grid = gridThrusterLayout(thrusterCount, thrusterNozzelDiameter, rng);
-        if (grid) {
-            // Use grid if possible
-            thrusterPositions = grid;
-        } else {
-            // Fallback: use radial layout if grid is not possible
-            isRadial = true;
-            thrusterPositions = radialThrusterLayout(thrusterCount, thrusterNozzelDiameter, rng);
+        // For moderate counts, try grid, then radial
+        if (thrusterCount > 3) {
+            if (rng.random() < 0.5) {
+                const grid = gridThrusterLayout(thrusterCount, thrusterNozzelDiameter, rng);
+                if (grid) return { positions: grid, isRadial: false };
+            }
+            // Fallback
+            return { positions: radialThrusterLayout(thrusterCount, thrusterNozzelDiameter, rng), isRadial: true };
         }
-    } else {
-        // For small thruster counts (<=3) or if random chooses, always use radial layout
-        isRadial = true;
-        thrusterPositions = radialThrusterLayout(thrusterCount, thrusterNozzelDiameter, rng);
+        // For small counts, always radial
+        // console.info(`Using radial layout for small thruster count: ${thrusterCount}`);
+        return { positions: radialThrusterLayout(thrusterCount, thrusterNozzelDiameter, rng), isRadial: true };
     }
+
+    const { positions: thrusterPositions, isRadial } = pickLayout(thrusterCount, thrusterNozzelDiameter, rng);
 
     const thrusterDepth = thrusterNozzelDiameter / rng.range(0.5, 4); // Depth based on size, more variation
     const group = new THREE.Group();

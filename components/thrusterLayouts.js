@@ -6,9 +6,13 @@ function radialThrusterLayout(thrusterCount, thrusterSize, rng) {
     let positions = [];
     let enginesLeft = thrusterCount;
     let centerRadius = 0;
-    const maxCenterCount = Math.floor(thrusterCount / 3);
-    const centerCount = rng.int(0, maxCenterCount);
+
+    const maxCenterCount = thrusterCount <= 4 ? thrusterCount : Math.floor(thrusterCount / 3);
+    const minCenterCount = thrusterCount <= 4 ? thrusterCount : 0; // Put one or 2 center thruster if count <= 2
+    const centerCount = rng.int(minCenterCount, maxCenterCount);
+
     enginesLeft -= centerCount;
+
     if (centerCount === 1) {
         positions.push({ x: 0, y: 0 });
     } else if (centerCount > 1) {

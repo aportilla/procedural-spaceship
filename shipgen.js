@@ -79,19 +79,40 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
 
     // Pick ship mass randomly within range, bias towards smaller ships
     const shipMassScalar = Math.pow(rng.random(), 4);
+    // console.info('shipMassScalar', shipMassScalar);
     const targetTotalShipMass = SHIP_MIN_MASS + shipMassScalar * (SHIP_MAX_MASS - SHIP_MIN_MASS);
 
+
+    const maxCommandDeckMassRatio = 30 * (1 - (shipMassScalar/1.2)); // between 5% and 30% of total ship mass
+    const commandDeckMassRatio = rng.range(5,maxCommandDeckMassRatio) / 100;
+    const maxEngineBlockMassRatio = 30 * (1 - (shipMassScalar/1.2)); // between 5% and 30% of total ship mass
+    const engineMassRatio = rng.range(5,maxEngineBlockMassRatio) / 100;
+    const cargoMassRatio = 1 - (commandDeckMassRatio + engineMassRatio);
+    const targetCargoMass = targetTotalShipMass * cargoMassRatio;
+
     // Create cargo section
+    // @TOOD: give this an explicit target mass rather than the ship mass scalar...
+    //        so we can make BIG ships with small cargo sections
     const cargoSection = makeCargoSection({
         shipMassScalar,
+        targetCargoMass,
         THREE,
         rng
     });
     const cargoMass = cargoSection.mass;
 
+    // const cargoMassRatio = cargoMass / targetTotalShipMass;
+    // console.info('cargoMassRatio', cargoMassRatio);
     // Calculate mass ratios for ship sections
-    const commandDeckMassRatio = 0.01 + rng.weightedRandom((1-shipMassScalar) * 0.2);
-    const engineMassRatio = 0.02 + rng.weightedRandom((1-shipMassScalar) * 0.4);
+
+
+    // console.info('RATIOS', {
+    //     cargoMassRatio,
+    //     commandDeckMassRatio,
+    //     engineMassRatio
+    // });
+    // console.info('commandDeckMassRatio', commandDeckMassRatio);
+
     const commandDeckMass = targetTotalShipMass * commandDeckMassRatio;
     const engineBlockMass = targetTotalShipMass * engineMassRatio;
     const totalShipMass = cargoMass + commandDeckMass + engineBlockMass;
@@ -142,41 +163,41 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
     const endAttachmentPoint = attachmentZ;
 
     // Section dimensions
-    const engineBlockWidth = engineBlockSection.width;
-    const engineBlockHeight = engineBlockSection.height;
-    const cargoSectionWidth = cargoSection.width;
-    const cargoSectionHeight = cargoSection.height;
-    const commandDeckWidth = commandDeckSection.width;
-    const commandDeckHeight = commandDeckSection.height;
-    const smallestSectionWidth = Math.min(
-        engineBlockWidth,
-        cargoSectionWidth,
-        commandDeckWidth
-    );
-    const smallestSectionHeight = Math.min(
-        engineBlockHeight,
-        cargoSectionHeight,
-        commandDeckHeight
-    );
+    // const engineBlockWidth = engineBlockSection.width;
+    // const engineBlockHeight = engineBlockSection.height;
+    // const cargoSectionWidth = cargoSection.width;
+    // const cargoSectionHeight = cargoSection.height;
+    // const commandDeckWidth = commandDeckSection.width;
+    // const commandDeckHeight = commandDeckSection.height;
+    // const smallestSectionWidth = Math.min(
+    //     engineBlockWidth,
+    //     cargoSectionWidth,
+    //     commandDeckWidth
+    // );
+    // const smallestSectionHeight = Math.min(
+    //     engineBlockHeight,
+    //     cargoSectionHeight,
+    //     commandDeckHeight
+    // );
 
-    // Tunnel dimensions
-    const smallestDimension = Math.min(smallestSectionWidth, smallestSectionHeight);
-    const tunnelWidth = smallestDimension * rng.range(0.5, 0.9);
-    const tunnelLength = cargoSection.length + (commandDeckSection.length / 2) + (engineBlockSection.length / 2);
-    const cargoPodsPerSegment = cargoSection.podsPerSegment;
-    let tunnelFacets = Math.floor(rng.range(3, 6));
-    if (cargoPodsPerSegment > 3) {
-        tunnelFacets = cargoPodsPerSegment;
-    }
+    // // Tunnel dimensions
+    // const smallestDimension = Math.min(smallestSectionWidth, smallestSectionHeight);
+    // const tunnelWidth = smallestDimension * rng.range(0.5, 0.9);
+    // const tunnelLength = cargoSection.length + (commandDeckSection.length / 2) + (engineBlockSection.length / 2);
+    // const cargoPodsPerSegment = cargoSection.podsPerSegment;
+    // let tunnelFacets = Math.floor(rng.range(3, 6));
+    // if (cargoPodsPerSegment > 3) {
+    //     tunnelFacets = cargoPodsPerSegment;
+    // }
 
-    // Tunnel geometry (cylinder)
-    const tunnelGeom = new THREE.CylinderGeometry(tunnelWidth / 2, tunnelWidth / 2, tunnelLength, tunnelFacets);
-    tunnelGeom.rotateX(Math.PI / 2);
-    tunnelGeom.translate(0, 0, -tunnelLength / 2);
-    const tunnelMat = new THREE.MeshPhongMaterial({ color: 0x666666, flatShading: true, shininess: 10 });
-    const tunnelMesh = new THREE.Mesh(tunnelGeom, tunnelMat);
-    tunnelMesh.position.z = attachmentZ - (commandDeckSection.length / 2);
-    ship.add(tunnelMesh);
+    // // Tunnel geometry (cylinder)
+    // const tunnelGeom = new THREE.CylinderGeometry(tunnelWidth / 2, tunnelWidth / 2, tunnelLength, tunnelFacets);
+    // tunnelGeom.rotateX(Math.PI / 2);
+    // tunnelGeom.translate(0, 0, -tunnelLength / 2);
+    // const tunnelMat = new THREE.MeshPhongMaterial({ color: 0x666666, flatShading: true, shininess: 10 });
+    // const tunnelMesh = new THREE.Mesh(tunnelGeom, tunnelMat);
+    // tunnelMesh.position.z = attachmentZ - (commandDeckSection.length / 2);
+    // ship.add(tunnelMesh);
 
     // Debug: Draw lines at each segment connection point
     function addDebugLine(z, color = 0xff0000) {

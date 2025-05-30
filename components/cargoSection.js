@@ -32,7 +32,8 @@ function getClosestPodMass(targetMass) {
 }
 
 // shipSizeScalar: number = 0...1
-function howManySegmentsOfCargo(shipSizeScalar, rng) {
+function howManySegmentsOfCargo(cargoMass, rng) {
+    const shipSizeScalar = Math.min(1, cargoMass / 1000); // Scale cargo mass to a 0-1 range
     if (shipSizeScalar <= 0.2) {
         return Math.floor(rng.range(1, 3));
     } else if (shipSizeScalar <= 0.4) {
@@ -46,7 +47,8 @@ function howManySegmentsOfCargo(shipSizeScalar, rng) {
     }
 }
 
-function howManyPodsPerSegment(shipSizeScalar, rng) {
+function howManyPodsPerSegment(cargoMass, rng) {
+    const shipSizeScalar = Math.min(1, cargoMass / 1000); // Scale cargo mass to a 0-1 range
     let result = 1;
     if (shipSizeScalar <= 0.3) {
         result = Math.floor(rng.range(1, 2));
@@ -61,10 +63,10 @@ function howManyPodsPerSegment(shipSizeScalar, rng) {
     return result;
 }
 
-function totalTargetCargoMass(shipSizeScalar) {
-    // returns a value between 10 and 1000
-    return 10 + 990 * shipSizeScalar;
-}
+// function totalTargetCargoMass(shipSizeScalar, rng) {
+//     // returns a value between 10 and 1000
+//     return 10 + rng.range(0, 900) * shipSizeScalar;
+// }
 
 function generateBoxDimensions(volume, bottomRatio, sideRatio) {
 
@@ -75,7 +77,7 @@ function generateBoxDimensions(volume, bottomRatio, sideRatio) {
     return { width, depth, height };
 }
 
-function makeConeGeometry(volume, aspectRatio, taperRatio = 0.5) {
+function makeTaperedCylinderGeometry(volume, aspectRatio, taperRatio = 0.5) {
   // taperRatio = smallRadius / bigRadius (default 0.5)
 
   // From volume formula and aspect ratio constraint:
@@ -121,7 +123,7 @@ function createPod({ mass, shape, rng, THREE }) {
             const podVolume = mass;
             const aspectRatio = rng.range(1,2); // Random aspect ratio for the barrel
             const taperRatio = rng.range(0.4,0.8); // Random taper for the barrel
-            const { smallRadius, bigRadius, depth } = makeConeGeometry(podVolume,aspectRatio,taperRatio);
+            const { smallRadius, bigRadius, depth } = makeTaperedCylinderGeometry(podVolume,aspectRatio,taperRatio);
             const circumference = 2 * Math.PI * bigRadius;
             const polySegments = Math.max(4,Math.floor(circumference * 0.6));
             // Top cone
@@ -138,10 +140,20 @@ function createPod({ mass, shape, rng, THREE }) {
             const podMat = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 });
             const topMesh = new THREE.Mesh(topGeom, podMat);
             const bottomMesh = new THREE.Mesh(bottomGeom, podMat);
+
+            // add a half height cylinder crosswise across the middle of hte barrel for entry
+            const randomPortSize = rng.range(0.1, 0.5) * bigRadius;
+            const crossGeom = new THREE.CylinderGeometry(randomPortSize, randomPortSize, bigRadius * 2, polySegments);
+            crossGeom.translate(0, 0, depth);
+            const crossMesh = new THREE.Mesh(crossGeom, podMat);
+            crossMesh.rotateZ(Math.PI / 2);
+
+
             // Group both sides
             const group = new THREE.Group();
             group.add(topMesh);
             group.add(bottomMesh);
+            group.add(crossMesh);
             group.position.z = depth;
             dimensions = { width: bigRadius * 2, height: bigRadius * 2, depth: depth * 2, maxRadius: bigRadius, endRadius: smallRadius };
             return { mesh: group, dimensions };
@@ -155,6 +167,7 @@ function createPod({ mass, shape, rng, THREE }) {
             // const aspectA = 1/2.5; // top face of box
             // const aspectB = 8/9; // back face of box
             const { width, depth, height } = generateBoxDimensions(mass, aspectA, aspectB);
+
             dimensions = { width, height, depth, aspectA, aspectB };
             podGeom = new THREE.BoxGeometry(width, height, depth);
             podGeom.translate(0, 0, depth / 2);
@@ -198,11 +211,15 @@ function layoutRadial({ podMesh, podsPerSegment, podDimensions, THREE, rng, doRo
     let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
     let minX = Infinity, minY = Infinity, minZ = Infinity;
     let podRadius = Math.max(podDimensions.width, podDimensions.height) / 2;
+    const podDepth = podDimensions.depth;
+    // console.info('podDimensions', podDimensions);
     let minRadius = podRadius / Math.sin(Math.PI / podsPerSegment);
     let gap = 0.05 * podRadius;
     let radius = podsPerSegment === 2 ? podRadius * 1.2 : minRadius + gap;
     const randomConst = rng.random();
     // podMesh.rotateZ(-Math.PI / 2);
+
+    const needsConnectors = radius > podRadius;
 
     for (let i = 0; i < podsPerSegment; i++) {
         const pod = podMesh.clone();
@@ -217,14 +234,16 @@ function layoutRadial({ podMesh, podsPerSegment, podDimensions, THREE, rng, doRo
 
         // if the pod has been placed more than its own radius distance away from the center
         // then we should add a thin cylinder oriented to connect the center of the pod to the center of the axis...
-        if (radius > podRadius * 1.5) {
-            const widthOfConnector = 0.1 + (podRadius / 4) * randomConst;
+        if (needsConnectors) {
+
+            const widthOfConnector = 0.3 + (podRadius / 2) * randomConst;
             const cylinderGeom = new THREE.CylinderGeometry(widthOfConnector, widthOfConnector, radius, 4);
             const cylinderMat = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 });
             const cylinderMesh = new THREE.Mesh(cylinderGeom, cylinderMat);
             cylinderMesh.position.set(x / 2, y / 2, podDimensions.depth / 2);
             cylinderMesh.rotateZ(angle + Math.PI / 2);
             group.add(cylinderMesh);
+
         }
 
 
@@ -234,6 +253,19 @@ function layoutRadial({ podMesh, podsPerSegment, podDimensions, THREE, rng, doRo
         minY = Math.min(minY, y - podDimensions.height / 2);
         maxZ = Math.max(maxZ, podDimensions.depth);
     }
+
+    if (needsConnectors) {
+
+        const widthOfConnector = 0.3 + (podRadius / 2) * randomConst;
+        const cylinderGeom2 = new THREE.CylinderGeometry(widthOfConnector, widthOfConnector, podDepth, 4);
+        const cylinderMat2 = new THREE.MeshPhongMaterial({ color: 0x888888, flatShading: true, shininess: 10 });
+        const cylinderMesh2 = new THREE.Mesh(cylinderGeom2, cylinderMat2);
+        cylinderMesh2.position.set(0,0,podDepth/2);
+        cylinderMesh2.rotateX(Math.PI / 2);
+        group.add(cylinderMesh2);
+
+    }
+
     return {
         mesh: group,
         width: maxX - minX,
@@ -322,14 +354,14 @@ function getPodShape(rng) {
     return podShapes[index];
 }
 
-export function makeCargoSection({ shipMassScalar, THREE, rng }) {
+export function makeCargoSection({ targetCargoMass, THREE, rng }) {
 
 
     // refactor:
     // step 1: choose a pod size based on our scalar ship size...
-    const segmentCount = howManySegmentsOfCargo(shipMassScalar, rng);
-    const podsPerSegment = howManyPodsPerSegment(shipMassScalar, rng);
-    const targetCargoMass = totalTargetCargoMass(shipMassScalar);
+    const segmentCount = howManySegmentsOfCargo(targetCargoMass, rng);
+    const podsPerSegment = howManyPodsPerSegment(targetCargoMass, rng);
+    // const targetCargoMass = totalTargetCargoMass(shipMassScalar, rng);
     const targetSegmentMass = targetCargoMass / segmentCount;
     const targetPodMass = targetSegmentMass / podsPerSegment;
     const podMass = getClosestPodMass(targetPodMass);
