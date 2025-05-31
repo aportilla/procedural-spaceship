@@ -1,3 +1,7 @@
+import * as THREE from 'three';
+import { randomSeed } from './randomseed.ts';
+import { SeededRandom, generateShip, getInitialSeed } from './shipgen.ts';
+
 // Scene setup
 const scene = new THREE.Scene();
 
@@ -70,8 +74,6 @@ document.addEventListener('wheel', (e) => {
 updateCameraPosition();
 
 // --- THRUSTER-BASED SHIP GENERATION ---
-import { randomSeed } from './randomseed.js';
-import { SeededRandom, generateShip, getInitialSeed } from './shipgen.js';
 
 let currentShip = { current: null };
 

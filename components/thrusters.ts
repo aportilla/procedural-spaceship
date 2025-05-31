@@ -1,4 +1,4 @@
-import { radialThrusterLayout, gridThrusterLayout, offsetGridThrusterLayout } from './thrusterLayouts.js';
+import { radialThrusterLayout, gridThrusterLayout, offsetGridThrusterLayout } from './thrusterLayouts.ts';
 
 // Returns { mesh, length } for the thruster section
 export function makeThrusters({ totalShipMass, rng, THREE }) {
