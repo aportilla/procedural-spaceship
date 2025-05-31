@@ -1,5 +1,6 @@
 // static definition
 // of prefabricated modular cargo pods...
+import { MakeCargoSectionParams, CargoSectionResult, PodDimensions } from '../types';
 const prefabCargoPodVolume = [
     1,
     2,
@@ -14,7 +15,7 @@ const prefabCargoPodVolume = [
     144
 ];
 
-function getClosestPodMass(targetMass) {
+function getClosestPodMass(targetMass: number): number {
     // console.info('targetMass:', targetMass);
     if (targetMass > 200) {
         return targetMass;
@@ -32,7 +33,7 @@ function getClosestPodMass(targetMass) {
 }
 
 // shipSizeScalar: number = 0...1
-function howManySegmentsOfCargo(cargoMass, rng) {
+function howManySegmentsOfCargo(cargoMass: number, rng: import('../shipgen').SeededRandom): number {
     const shipSizeScalar = Math.min(1, cargoMass / 1000); // Scale cargo mass to a 0-1 range
     if (shipSizeScalar <= 0.2) {
         return Math.floor(rng.range(1, 3));
@@ -47,7 +48,7 @@ function howManySegmentsOfCargo(cargoMass, rng) {
     }
 }
 
-function howManyPodsPerSegment(cargoMass, rng) {
+function howManyPodsPerSegment(cargoMass: number, rng: import('../shipgen').SeededRandom): number {
     const shipSizeScalar = Math.min(1, cargoMass / 1000); // Scale cargo mass to a 0-1 range
     let result = 1;
     if (shipSizeScalar <= 0.3) {
@@ -68,7 +69,7 @@ function howManyPodsPerSegment(cargoMass, rng) {
 //     return 10 + rng.range(0, 900) * shipSizeScalar;
 // }
 
-function generateBoxDimensions(volume, bottomRatio, sideRatio) {
+function generateBoxDimensions(volume: number, bottomRatio: number, sideRatio: number): PodDimensions {
 
     const depth = Math.cbrt(volume * sideRatio / (bottomRatio * bottomRatio));
     const width = bottomRatio * depth;
@@ -77,7 +78,7 @@ function generateBoxDimensions(volume, bottomRatio, sideRatio) {
     return { width, depth, height };
 }
 
-function makeTaperedCylinderGeometry(volume, aspectRatio, taperRatio = 0.5) {
+function makeTaperedCylinderGeometry(volume: number, aspectRatio: number, taperRatio: number = 0.5): { smallRadius: number; bigRadius: number; depth: number } {
   // taperRatio = smallRadius / bigRadius (default 0.5)
 
   // From volume formula and aspect ratio constraint:
@@ -113,7 +114,7 @@ const boxShapes = [
 ];
 
 // --- Pod creation factory ---
-function createPod({ mass, shape, rng, THREE }) {
+function createPod({ mass, shape, rng, THREE }: { mass: number; shape: string; rng: import('../shipgen').SeededRandom; THREE: any }): { mesh: any; dimensions: PodDimensions } {
     // Calculate pod dimensions
     let dimensions;
     let podGeom;
@@ -206,7 +207,7 @@ function createPod({ mass, shape, rng, THREE }) {
 }
 
 // --- Layout functions ---
-function layoutRadial({ podMesh, podsPerSegment, podDimensions, THREE, rng, doRotation }) {
+function layoutRadial({ podMesh, podsPerSegment, podDimensions, THREE, rng, doRotation }: { podMesh: any; podsPerSegment: number; podDimensions: PodDimensions; THREE: any; rng: import('../shipgen').SeededRandom; doRotation: boolean }): any {
     const group = new THREE.Group();
     let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
     let minX = Infinity, minY = Infinity, minZ = Infinity;
@@ -275,7 +276,7 @@ function layoutRadial({ podMesh, podsPerSegment, podDimensions, THREE, rng, doRo
     };
 }
 
-function layoutGrid({ podMesh, podsPerSegment, podDimensions, THREE }) {
+function layoutGrid({ podMesh, podsPerSegment, podDimensions, THREE }: { podMesh: any; podsPerSegment: number; podDimensions: PodDimensions; THREE: any }): any {
     const group = new THREE.Group();
     // Find the most compact (closest to square) grid
     let bestRows = 1, bestCols = podsPerSegment, minDiff = podsPerSegment - 1;
@@ -321,7 +322,7 @@ function layoutGrid({ podMesh, podsPerSegment, podDimensions, THREE }) {
 }
 
 // --- Segment mesh builder ---
-function makeSegmentMesh({ podMesh, podDimensions, podsPerSegment, rng, THREE, doRotation }) {
+function makeSegmentMesh({ podMesh, podDimensions, podsPerSegment, rng, THREE, doRotation }: { podMesh: any; podDimensions: PodDimensions; podsPerSegment: number; rng: import('../shipgen').SeededRandom; THREE: any; doRotation: boolean }): any {
     if (podsPerSegment === 1) {
         // Single pod on axis
         // const { mesh: pod, dimensions } = createPod({ mass: segmentMass, shape: podShape, rng, THREE });
@@ -348,13 +349,13 @@ function makeSegmentMesh({ podMesh, podDimensions, podsPerSegment, rng, THREE, d
 
 
 const podShapes = ['box','box','cylinder','cylinder','sphere', 'barrel'];
-function getPodShape(rng) {
+function getPodShape(rng: import('../shipgen').SeededRandom): string {
     // Randomly choose a pod shape
     const index = Math.floor(rng.random() * podShapes.length);
     return podShapes[index];
 }
 
-export function makeCargoSection({ targetCargoMass, THREE, rng }) {
+export function makeCargoSection({ targetCargoMass, THREE, rng }: MakeCargoSectionParams): CargoSectionResult {
 
 
     // refactor:
@@ -428,6 +429,8 @@ export function makeCargoSection({ targetCargoMass, THREE, rng }) {
         length: totalLength,
         width: cargoSectionWidth,
         height: cargoSectionHeight,
+        layout: cargoSectionLayout,
+        depth: cargoSectionDepth,
         podsPerSegment: podsPerSegment
     };
 }

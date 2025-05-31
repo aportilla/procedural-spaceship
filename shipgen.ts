@@ -19,10 +19,13 @@ const SHIP_MIN_MASS = 10;
 
 // Seeded random number generator
 export class SeededRandom {
-    constructor(seed) {
+    private seed: number;
+    
+    constructor(seed: string) {
         this.seed = this.hashCode(seed);
     }
-    hashCode(str) {
+    
+    private hashCode(str: string): number {
         let hash = 0;
         for (let i = 0; i < str.length; i++) {
             const char = str.charCodeAt(i);
@@ -31,11 +34,12 @@ export class SeededRandom {
         }
         return Math.abs(hash);
     }
-    random() {
+    random(): number {
         const x = Math.sin(this.seed++) * 10000;
         return x - Math.floor(x);
     }
-    weightedRandom(target, standardDeviation = 0.1) {
+    
+    weightedRandom(target: number, standardDeviation: number = 0.1): number {
         // Box-Muller transform
         const u1 = this.random();
         const u2 = this.random();
@@ -44,17 +48,18 @@ export class SeededRandom {
         let result = target + z * standardDeviation;
         return Math.max(0, Math.min(1, result));
     }
-    range(min, max) {
+    range(min: number, max: number): number {
         return min + this.random() * (max - min);
     }
-    int(min, max) {
+    
+    int(min: number, max: number): number {
         return Math.floor(this.range(min, max + 1));
     }
 }
 
 
 // Main ship generation function
-export function generateShip(seed, scene, THREE, currentShipRef) {
+export function generateShip(seed: string, scene: any, THREE: any, currentShipRef: { current: any }): void {
     // Update the URL with the seed if needed
     if (typeof window !== 'undefined' && window.history && window.location) {
         const url = new URL(window.location.href);
@@ -67,7 +72,7 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
     // Remove previous ship
     if (currentShipRef.current) {
         scene.remove(currentShipRef.current);
-        currentShipRef.current.traverse((child) => {
+        currentShipRef.current.traverse((child: any) => {
             if (child.geometry) child.geometry.dispose();
             if (child.material) child.material.dispose();
         });
@@ -127,9 +132,9 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
     ship.add(thrusterSection.mesh);
     attachmentZ = thrusterSection.length;
     const thrusterAttachmentPoint = attachmentZ;
-    const isRadial = thrusterSection.isRadial;
-    const thrusterPositions = thrusterSection.thrusterPositions;
-    const thrusterSize = thrusterSection.thrusterSize;
+    const isRadial = thrusterSection.isRadial || false;
+    const thrusterPositions = thrusterSection.thrusterPositions || [];
+    const thrusterSize = thrusterSection.thrusterSize || 1;
 
     // Engine block section
     const engineBlockSection = makeEngineBlock({
@@ -200,7 +205,7 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
     // ship.add(tunnelMesh);
 
     // Debug: Draw lines at each segment connection point
-    function addDebugLine(z, color = 0xff0000) {
+    function addDebugLine(z: number, color: number = 0xff0000) {
         const mat = new THREE.LineBasicMaterial({ color });
         const points = [
             new THREE.Vector3(-10, 0, z),
@@ -238,7 +243,7 @@ export function generateShip(seed, scene, THREE, currentShipRef) {
 }
 
 // Helper: Get seed from URL or generate new one
-export function getInitialSeed() {
+export function getInitialSeed(): string {
     if (typeof window !== 'undefined' && window.location) {
         const url = new URL(window.location.href);
         const urlSeed = url.searchParams.get('seed');

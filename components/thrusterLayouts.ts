@@ -1,8 +1,10 @@
 // components/thrusterLayouts.js
 // Utility functions for arranging thrusters in various layouts
 
+import { ThrusterPosition } from '../types';
+
 // Radial layout
-function radialThrusterLayout(thrusterCount, thrusterSize, rng) {
+export function radialThrusterLayout(thrusterCount: number, thrusterSize: number, rng: any): any {
     let positions = [];
     let enginesLeft = thrusterCount;
     let centerRadius = 0;
@@ -50,15 +52,15 @@ function radialThrusterLayout(thrusterCount, thrusterSize, rng) {
 }
 
 // Even grid configurations
-function findEvenGridConfigurations(engines) {
-    const configurations = [];
+function findEvenGridConfigurations(engines: number): { rows: number; cols: number }[] {
+    const configurations: { rows: number; cols: number }[] = [];
     for (let rows = 2; rows <= Math.sqrt(engines); rows++) {
         if (engines % rows === 0) {
             const cols = engines / rows;
             if (cols >= 2) {
-                configurations.push([cols, rows]);
+                configurations.push({ rows, cols });
                 if (rows !== cols) {
-                    configurations.push([rows, cols]);
+                    configurations.push({ rows: cols, cols: rows });
                 }
             }
         }
@@ -67,10 +69,11 @@ function findEvenGridConfigurations(engines) {
 }
 
 // Grid layout
-function gridThrusterLayout(thrusterCount, thrusterSize, rng) {
+export function gridThrusterLayout(thrusterCount: number, thrusterSize: number, rng: any): any {
     const configs = findEvenGridConfigurations(thrusterCount);
     if (!configs.length) return null;
-    const [cols, rows] = configs[rng.int(0, configs.length - 1)];
+    const config = configs[rng.int(0, configs.length - 1)];
+    const { cols, rows } = config;
     let positions = [];
     let spacing = thrusterSize * 1.3;
     let startX = -((cols - 1) / 2) * spacing;
@@ -87,7 +90,7 @@ function gridThrusterLayout(thrusterCount, thrusterSize, rng) {
 }
 
 // Staggered (offset) row configurations
-function findStaggeredConfigurations(engines) {
+function findStaggeredConfigurations(engines: number): number[][] {
     const configs = [];
     const maxRows = Math.floor((2 * engines - 1) / 3);
     for (let n = 3; n <= maxRows; n += 2) {
@@ -108,7 +111,7 @@ function findStaggeredConfigurations(engines) {
 }
 
 // Offset grid layout
-function offsetGridThrusterLayout(thrusterCount, thrusterSize, rng) {
+export function offsetGridThrusterLayout(thrusterCount: number, thrusterSize: number, rng: any): any {
     const configs = findStaggeredConfigurations(thrusterCount);
     if (!configs.length) return null;
     const config = configs[rng.int(0, configs.length - 1)];
@@ -144,9 +147,3 @@ function offsetGridThrusterLayout(thrusterCount, thrusterSize, rng) {
     }
     return positions;
 }
-
-export {
-    radialThrusterLayout,
-    gridThrusterLayout,
-    offsetGridThrusterLayout
-};

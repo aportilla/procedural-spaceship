@@ -1,7 +1,8 @@
 import { radialThrusterLayout, gridThrusterLayout, offsetGridThrusterLayout } from './thrusterLayouts.ts';
+import { MakeThrustersParams, ComponentResult } from '../types';
 
 // Returns { mesh, length } for the thruster section
-export function makeThrusters({ totalShipMass, rng, THREE }) {
+export function makeThrusters({ totalShipMass, rng, THREE }: MakeThrustersParams): ComponentResult {
     // --- Ship and thruster constants (moved inside) ---
     const MIN_THRUSTER_COUNT = 1;
     const MAX_THRUSTER_COUNT = 33;
@@ -32,7 +33,7 @@ export function makeThrusters({ totalShipMass, rng, THREE }) {
     });
 
     // --- Layout selection logic (refactored for clarity) ---
-    function pickLayout(thrusterCount, thrusterNozzelDiameter, rng) {
+    function pickLayout(thrusterCount: number, thrusterNozzelDiameter: number, rng: import('../shipgen').SeededRandom): any {
         // For large counts, try offset grid, then grid, then radial
         if (thrusterCount >= 7) {
             if (rng.random() < 0.5) {

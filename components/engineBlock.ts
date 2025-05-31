@@ -1,7 +1,9 @@
 // Engine Block Component
 // Exports makeEngineBlock({ isRadial, thrusterPositions, thrusterSize, engineBlockMass, THREE, rng }) => { mesh, length }
 
-export function makeEngineBlock({ isRadial, thrusterPositions, thrusterSize, engineBlockMass, THREE, rng }) {
+import { MakeEngineBlockParams, ComponentResult } from '../types';
+
+export function makeEngineBlock({ isRadial, thrusterPositions, thrusterSize, engineBlockMass, THREE, rng }: MakeEngineBlockParams): ComponentResult {
     // 1. Find bounding box of thruster positions
 
     let boundingBoxPaddingScalar = rng.random() * 0.2 + 0.1; // Random padding between 10% and 30%

@@ -1,8 +1,9 @@
 // Command Deck Component
 // Exports makeCommandDeck({ commandDeckMass, THREE, rng }) => { mesh, length }
 
+import { MakeCommandDeckParams, ComponentResult } from '../types';
 
-function makeTaperedCylinderGeometry(volume, aspectRatio, taperRatio = 0.5) {
+function makeTaperedCylinderGeometry(volume: number, aspectRatio: number, taperRatio: number = 0.5): { smallRadius: number; bigRadius: number; depth: number } {
   // taperRatio = smallRadius / bigRadius (default 0.5)
 
   // From volume formula and aspect ratio constraint:
@@ -24,7 +25,7 @@ function makeTaperedCylinderGeometry(volume, aspectRatio, taperRatio = 0.5) {
 }
 
 
-function addWindows(parentMesh, boxWidth, boxHeight, boxDepth, rng, THREE) {
+function addWindows(parentMesh: any, boxWidth: number, boxHeight: number, boxDepth: number, rng: any, THREE: any): void {
     // Window dimensions - larger height for better visibility
     const windowHeight = 0.12;
     const windowDepth = 0.001; // Very thin for flat appearance
@@ -94,15 +95,15 @@ function addWindows(parentMesh, boxWidth, boxHeight, boxDepth, rng, THREE) {
 const commandDeckShapes = ['box','box','cylinder', 'cylinder', 'hammerheadCylinder', 'sphere'];
 // const commandDeckShapes = ['cylinder'];
 
-export function makeCommandDeck({ commandDeckMass, THREE, rng }) {
+export function makeCommandDeck({ commandDeckMass, THREE, rng }: MakeCommandDeckParams): ComponentResult {
     // const commandDeckShapeRand = rng.random();
     // const commandDeckShapeRand = 0.3; // debug: always hammerhead cylinder
 
     // choose shape from array
     const commandDeckShape = commandDeckShapes[Math.floor(rng.random() * commandDeckShapes.length)];
 
-    let commandDeckGeom, commandDeckMat, commandDeckDepth;
-    let mesh, commandDeckWidth = 0, commandDeckHeight = 0;
+    let commandDeckGeom, commandDeckMat, commandDeckDepth: number = 0;
+    let mesh: any = null, commandDeckWidth = 0, commandDeckHeight = 0;
     if (commandDeckShape === 'box') {
         // Box (aspect-ratio based)
         const aspectA = 0.1 + (3 * rng.random()); // Aspect ratio between 0.5 and 2.0

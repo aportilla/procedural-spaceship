@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { randomSeed } from './randomseed.ts';
-import { SeededRandom, generateShip, getInitialSeed } from './shipgen.ts';
+import { generateShip, getInitialSeed } from './shipgen.ts';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -32,7 +32,7 @@ let phi = 60 * Math.PI / 180;   // Vertical angle
 let radius = 25;
 const minRadius = 5, maxRadius = 50;
 
-function updateCameraPosition() {
+function updateCameraPosition(): void {
     camera.position.x = radius * Math.sin(phi) * Math.cos(theta);
     camera.position.y = radius * Math.cos(phi);
     camera.position.z = radius * Math.sin(phi) * Math.sin(theta);
@@ -75,11 +75,11 @@ updateCameraPosition();
 
 // --- THRUSTER-BASED SHIP GENERATION ---
 
-let currentShip = { current: null };
+let currentShip: { current: THREE.Group | null } = { current: null };
 
-const seedInput = document.getElementById('seedInput');
-const generateBtn = document.getElementById('generateBtn');
-const controlsContainer = document.getElementById('controls');
+const seedInput = document.getElementById('seedInput') as HTMLInputElement;
+const generateBtn = document.getElementById('generateBtn') as HTMLButtonElement;
+const controlsContainer = document.getElementById('controls') as HTMLDivElement;
 // Add previous/next buttons as a pill pair with glyphs
 const prevBtn = document.createElement('button');
 prevBtn.innerHTML = '&#8592;'; // Left arrow
@@ -96,11 +96,11 @@ pillGroup.appendChild(nextBtn);
 
 // Remove old floating controlsDiv if present
 const oldControlsDiv = document.getElementById('controlsDiv');
-if (oldControlsDiv && oldControlsDiv.parentNode) oldControlsDiv.parentNode.removeChild(oldControlsDiv);
+if (oldControlsDiv?.parentNode) oldControlsDiv.parentNode.removeChild(oldControlsDiv);
 
 // --- Move controls into the main seed input widget as a footer ---
 let controlsFooter = document.getElementById('controlsFooter');
-if (controlsFooter && controlsFooter.parentNode) controlsFooter.parentNode.removeChild(controlsFooter);
+if (controlsFooter?.parentNode) controlsFooter.parentNode.removeChild(controlsFooter);
 controlsFooter = document.createElement('div');
 controlsFooter.id = 'controlsFooter';
 controlsFooter.className = 'controls-footer';
@@ -109,13 +109,13 @@ controlsFooter.appendChild(generateBtn);
 
 // Insert footer after the seed input (and before #info)
 const infoDiv = document.getElementById('info');
-controlsContainer.insertBefore(controlsFooter, infoDiv);
+if (infoDiv) controlsContainer.insertBefore(controlsFooter, infoDiv);
 
 // Seed history logic
-let seedHistory = [];
-let seedIndex = -1;
+let seedHistory: string[] = [];
+let seedIndex: number = -1;
 
-function setSeedAndGenerate(seed, addToHistory = true) {
+function setSeedAndGenerate(seed: string, addToHistory: boolean = true): void {
     seedInput.value = seed;
     generateShip(seed, scene, THREE, currentShip);
     if (addToHistory) {
@@ -129,7 +129,7 @@ function setSeedAndGenerate(seed, addToHistory = true) {
     updateNavButtons();
 }
 
-function updateNavButtons() {
+function updateNavButtons(): void {
     prevBtn.disabled = seedIndex <= 0;
     nextBtn.disabled = seedIndex >= seedHistory.length - 1;
 }
@@ -161,7 +161,7 @@ nextBtn.addEventListener('click', () => {
     }
 });
 
-function animate() {
+function animate(): void {
     if (!isDragging && currentShip.current) {
         currentShip.current.rotation.y += 0.005;
     }
