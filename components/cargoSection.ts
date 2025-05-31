@@ -321,7 +321,7 @@ function layoutGrid({ podMesh, podsPerSegment, podDimensions, THREE }) {
 }
 
 // --- Segment mesh builder ---
-function makeSegmentMesh({ podMesh, podDimensions, podsPerSegment, rng, THRE, doRotation }) {
+function makeSegmentMesh({ podMesh, podDimensions, podsPerSegment, rng, THREE, doRotation }) {
     if (podsPerSegment === 1) {
         // Single pod on axis
         // const { mesh: pod, dimensions } = createPod({ mass: segmentMass, shape: podShape, rng, THREE });

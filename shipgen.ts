@@ -1,10 +1,10 @@
 // shipgen.js
 // Ship generation logic for procedural-spaceship
 
-import { makeThrusters } from './components/thrusters.js';
-import { makeEngineBlock } from './components/engineBlock.js';
-import { makeCargoSection } from './components/cargoSection.js';
-import { makeCommandDeck } from './components/commandDeck.js';
+import { makeThrusters } from './components/thrusters.ts';
+import { makeEngineBlock } from './components/engineBlock.ts';
+import { makeCargoSection } from './components/cargoSection.ts';
+import { makeCommandDeck } from './components/commandDeck.ts';
 // import { radialThrusterLayout, gridThrusterLayout, offsetGridThrusterLayout } from './components/thrusterLayouts.js';
 
 
