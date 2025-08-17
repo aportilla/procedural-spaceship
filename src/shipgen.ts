@@ -1,66 +1,122 @@
-// shipgen.js
-// Ship generation logic for procedural-spaceship
+/**
+ * shipgen.ts
+ * 
+ * Main ship generation module for procedural spaceship creation.
+ * Handles the assembly of ship components (thrusters, engine block, cargo section, command deck)
+ * using a seeded random number generator for reproducible results.
+ */
 
+// ============================================================================
+// IMPORTS
+// ============================================================================
+
+// Component generators - each creates a specific ship section
 import { makeThrusters } from './components/thrusters.ts';
 import { makeEngineBlock } from './components/engineBlock.ts';
 import { makeCargoSection } from './components/cargoSection.ts';
 import { makeCommandDeck } from './components/commandDeck.ts';
+
+// Utilities
 import { SeededRandom } from './utilities/random.ts';
-import { getInitialSeed } from './utilities/seed.ts';
 import { addDebugLine } from './utilities/debug.ts';
-// import { radialThrusterLayout, gridThrusterLayout, offsetGridThrusterLayout } from './components/thrusterLayouts.js';
 
+// ============================================================================
+// CONSTANTS
+// ============================================================================
 
-// --- Ship and thruster constants ---
-// const MIN_THRUSTER_COUNT = 1;
-// const MAX_THRUSTER_COUNT = 33;
-const SHIP_MAX_MASS = 1000;
-const SHIP_MIN_MASS = 10;
-// const MAX_THRUSTER_POWER = 250;
-// const MIN_THRUSTER_POWER = 5;
+// Ship mass constraints - determines overall ship size
+const SHIP_MAX_MASS = 1000;  // Maximum total ship mass units
+const SHIP_MIN_MASS = 10;    // Minimum total ship mass units
 
 
 
-// Main ship generation function
+// ============================================================================
+// MAIN SHIP GENERATION
+// ============================================================================
+
+/**
+ * Generates a complete procedural spaceship from a given seed.
+ * 
+ * @param seed - Seed string for reproducible generation
+ * @param scene - Three.js scene to add the ship to
+ * @param THREE - Three.js library reference
+ * @param currentShipRef - Reference to track current ship for cleanup
+ * 
+ * Ship assembly process:
+ * 1. Clean up any existing ship
+ * 2. Calculate mass distribution based on ship size
+ * 3. Generate components from back to front:
+ *    - Thrusters (propulsion)
+ *    - Engine block (power generation)
+ *    - Cargo section (storage/hull)
+ *    - Command deck (control center)
+ * 4. Position ship centered at origin
+ */
 export function generateShip(seed: string, scene: any, THREE: any, currentShipRef: { current: any }): void {
-    // Update the URL with the seed if needed
-    if (typeof window !== 'undefined' && window.history && window.location) {
-        const url = new URL(window.location.href);
-        if (url.searchParams.get('seed') !== seed) {
-            url.searchParams.set('seed', seed);
-            window.history.replaceState({}, '', url);
-        }
-    }
-
-    // Remove previous ship
+    // ========================================================================
+    // CLEANUP
+    // ========================================================================
+    // Remove and dispose of the previous ship to prevent memory leaks
     if (currentShipRef.current) {
         scene.remove(currentShipRef.current);
+        // Properly dispose of Three.js resources
         currentShipRef.current.traverse((child: any) => {
             if (child.geometry) child.geometry.dispose();
             if (child.material) child.material.dispose();
         });
     }
 
+    // ========================================================================
+    // INITIALIZATION
+    // ========================================================================
+    
+    // Track Z position for component placement (ship builds along Z-axis)
     let attachmentZ = 0;
+    
+    // Initialize seeded random number generator for reproducible generation
     const rng = new SeededRandom(seed);
+    
+    // Container for all ship components
     const ship = new THREE.Group();
 
-    // Pick ship mass randomly within range, bias towards smaller ships
+    // ========================================================================
+    // MASS CALCULATION
+    // ========================================================================
+    
+    // Generate ship size with bias towards smaller vessels
+    // Using power of 4 creates exponential distribution favoring small ships
+    // Result: 0 = smallest possible ship, 1 = largest possible ship
     const shipMassScalar = Math.pow(rng.random(), 4);
-    // console.info('shipMassScalar', shipMassScalar);
+    
+    // Calculate actual ship mass from scalar
     const targetTotalShipMass = SHIP_MIN_MASS + shipMassScalar * (SHIP_MAX_MASS - SHIP_MIN_MASS);
 
 
-    const maxCommandDeckMassRatio = 30 * (1 - (shipMassScalar/1.2)); // between 5% and 30% of total ship mass
-    const commandDeckMassRatio = rng.range(5,maxCommandDeckMassRatio) / 100;
-    const maxEngineBlockMassRatio = 30 * (1 - (shipMassScalar/1.2)); // between 5% and 30% of total ship mass
-    const engineMassRatio = rng.range(5,maxEngineBlockMassRatio) / 100;
+    // ========================================================================
+    // MASS DISTRIBUTION
+    // ========================================================================
+    
+    // Smaller ships have proportionally larger command decks and engines
+    // This creates more realistic proportions across ship sizes
+    
+    // Command deck: 5-30% of mass (larger % for smaller ships)
+    const maxCommandDeckMassRatio = 30 * (1 - (shipMassScalar/1.2));
+    const commandDeckMassRatio = rng.range(5, maxCommandDeckMassRatio) / 100;
+    
+    // Engine block: 5-30% of mass (larger % for smaller ships)
+    const maxEngineBlockMassRatio = 30 * (1 - (shipMassScalar/1.2));
+    const engineMassRatio = rng.range(5, maxEngineBlockMassRatio) / 100;
+    
+    // Cargo takes remaining mass after command deck and engines
     const cargoMassRatio = 1 - (commandDeckMassRatio + engineMassRatio);
     const targetCargoMass = targetTotalShipMass * cargoMassRatio;
 
-    // Create cargo section
-    // @TOOD: give this an explicit target mass rather than the ship mass scalar...
-    //        so we can make BIG ships with small cargo sections
+    // ========================================================================
+    // PRE-GENERATION SETUP
+    // ========================================================================
+    
+    // Generate cargo section first to get actual mass
+    // (may differ slightly from target due to component constraints)
     const cargoSection = makeCargoSection({
         shipMassScalar,
         targetCargoMass,
@@ -68,125 +124,106 @@ export function generateShip(seed: string, scene: any, THREE: any, currentShipRe
         rng
     });
     const cargoMass = cargoSection.mass;
-
-    // const cargoMassRatio = cargoMass / targetTotalShipMass;
-    // console.info('cargoMassRatio', cargoMassRatio);
-    // Calculate mass ratios for ship sections
-
-
-    // console.info('RATIOS', {
-    //     cargoMassRatio,
-    //     commandDeckMassRatio,
-    //     engineMassRatio
-    // });
-    // console.info('commandDeckMassRatio', commandDeckMassRatio);
-
+    
+    // Calculate final component masses
     const commandDeckMass = targetTotalShipMass * commandDeckMassRatio;
     const engineBlockMass = targetTotalShipMass * engineMassRatio;
     const totalShipMass = cargoMass + commandDeckMass + engineBlockMass;
 
-    // Thruster section
+    // ========================================================================
+    // COMPONENT ASSEMBLY
+    // ========================================================================
+    
+    // ------------------------------------------------------------------------
+    // 1. THRUSTERS (Rear of ship, Z=0)
+    // ------------------------------------------------------------------------
+    // Generate propulsion system based on total ship mass
     const thrusterSection = makeThrusters({
         totalShipMass,
         rng,
         THREE
     });
+    
+    // Position at origin (rear of ship)
     thrusterSection.mesh.position.z = 0;
     ship.add(thrusterSection.mesh);
+    
+    // Track attachment point and thruster configuration for engine block
     attachmentZ = thrusterSection.length;
     const thrusterAttachmentPoint = attachmentZ;
     const isRadial = thrusterSection.isRadial || false;
     const thrusterPositions = thrusterSection.thrusterPositions || [];
     const thrusterSize = thrusterSection.thrusterSize || 1;
 
-    // Engine block section
+    // ------------------------------------------------------------------------
+    // 2. ENGINE BLOCK (Connects thrusters to cargo)
+    // ------------------------------------------------------------------------
+    // Generate power generation/distribution system
+    // Adapts to thruster configuration for visual coherence
     const engineBlockSection = makeEngineBlock({
-        isRadial,
-        thrusterPositions,
-        thrusterSize,
+        isRadial,           // Match thruster layout style
+        thrusterPositions,  // Align with thruster placement
+        thrusterSize,       // Scale appropriately
         engineBlockMass,
         THREE,
         rng
     });
+    
+    // Attach directly after thrusters
     engineBlockSection.mesh.position.z = attachmentZ;
     attachmentZ += engineBlockSection.length;
     const cargoAttachmentPoint = attachmentZ;
     ship.add(engineBlockSection.mesh);
 
-    // Cargo section
+    // ------------------------------------------------------------------------
+    // 3. CARGO SECTION (Main hull/storage)
+    // ------------------------------------------------------------------------
+    // Already generated above for mass calculation
+    // Now position in the ship assembly
     cargoSection.mesh.position.z = attachmentZ;
     attachmentZ += cargoSection.length;
     const commandDeckAttachmentPoint = attachmentZ;
     ship.add(cargoSection.mesh);
 
-    // Command deck section
+    // ------------------------------------------------------------------------
+    // 4. COMMAND DECK (Front of ship, control center)
+    // ------------------------------------------------------------------------
+    // Generate bridge/cockpit section
     const commandDeckSection = makeCommandDeck({
         commandDeckMass,
         THREE,
         rng
     });
+    
+    // Attach at front of ship
     commandDeckSection.mesh.position.z = attachmentZ;
     attachmentZ += commandDeckSection.length;
     ship.add(commandDeckSection.mesh);
+    
+    // Mark final ship length
     const endAttachmentPoint = attachmentZ;
 
-    // Section dimensions
-    // const engineBlockWidth = engineBlockSection.width;
-    // const engineBlockHeight = engineBlockSection.height;
-    // const cargoSectionWidth = cargoSection.width;
-    // const cargoSectionHeight = cargoSection.height;
-    // const commandDeckWidth = commandDeckSection.width;
-    // const commandDeckHeight = commandDeckSection.height;
-    // const smallestSectionWidth = Math.min(
-    //     engineBlockWidth,
-    //     cargoSectionWidth,
-    //     commandDeckWidth
-    // );
-    // const smallestSectionHeight = Math.min(
-    //     engineBlockHeight,
-    //     cargoSectionHeight,
-    //     commandDeckHeight
-    // );
+    // ========================================================================
+    // DEBUG VISUALIZATION
+    // ========================================================================
+    // Visual markers showing component boundaries for development
+    addDebugLine(ship, thrusterAttachmentPoint, 0xff0000, THREE);      // Red: thruster/engine boundary
+    addDebugLine(ship, cargoAttachmentPoint, 0x00ff00, THREE);         // Green: engine/cargo boundary
+    addDebugLine(ship, commandDeckAttachmentPoint, 0x0000ff, THREE);   // Blue: cargo/command boundary
+    addDebugLine(ship, endAttachmentPoint, 0xffff00, THREE);           // Yellow: ship front
 
-    // // Tunnel dimensions
-    // const smallestDimension = Math.min(smallestSectionWidth, smallestSectionHeight);
-    // const tunnelWidth = smallestDimension * rng.range(0.5, 0.9);
-    // const tunnelLength = cargoSection.length + (commandDeckSection.length / 2) + (engineBlockSection.length / 2);
-    // const cargoPodsPerSegment = cargoSection.podsPerSegment;
-    // let tunnelFacets = Math.floor(rng.range(3, 6));
-    // if (cargoPodsPerSegment > 3) {
-    //     tunnelFacets = cargoPodsPerSegment;
-    // }
-
-    // // Tunnel geometry (cylinder)
-    // const tunnelGeom = new THREE.CylinderGeometry(tunnelWidth / 2, tunnelWidth / 2, tunnelLength, tunnelFacets);
-    // tunnelGeom.rotateX(Math.PI / 2);
-    // tunnelGeom.translate(0, 0, -tunnelLength / 2);
-    // const tunnelMat = new THREE.MeshPhongMaterial({ color: 0x666666, flatShading: true, shininess: 10 });
-    // const tunnelMesh = new THREE.Mesh(tunnelGeom, tunnelMat);
-    // tunnelMesh.position.z = attachmentZ - (commandDeckSection.length / 2);
-    // ship.add(tunnelMesh);
-
-    // Debug: Draw lines at each segment connection point
-    addDebugLine(ship, thrusterAttachmentPoint, 0xff0000, THREE); // Red: after thrusters
-    addDebugLine(ship, cargoAttachmentPoint, 0x00ff00, THREE);    // Green: after engine block
-    addDebugLine(ship, commandDeckAttachmentPoint, 0x0000ff, THREE); // Blue: after cargo
-    addDebugLine(ship, endAttachmentPoint, 0xffff00, THREE);      // Yellow: after command deck
-
-    // Debug: Add a marker at the scene origin (0,0,0)
-    // const originMarkerGeom = new THREE.SphereGeometry(0.2, 12, 8);
-    // const originMarkerMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
-    // const originMarker = new THREE.Mesh(originMarkerGeom, originMarkerMat);
-    // originMarker.position.set(0, 0, 0);
-    // scene.add(originMarker);
-
-    // Center the ship so its midpoint is at z=0
+    // ========================================================================
+    // FINAL POSITIONING
+    // ========================================================================
+    
+    // Center ship along Z-axis (midpoint at origin for balanced rotation)
     ship.position.z = -endAttachmentPoint / 2;
-
-    // Create a root group for rotation
+    
+    // Wrap in root group for clean transformations
     const shipRoot = new THREE.Group();
     shipRoot.add(ship);
-
+    
+    // Store reference and add to scene
     currentShipRef.current = shipRoot;
     scene.add(shipRoot);
 }

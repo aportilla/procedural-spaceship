@@ -117,7 +117,18 @@ let seedIndex: number = -1;
 
 function setSeedAndGenerate(seed: string, addToHistory: boolean = true): void {
     seedInput.value = seed;
+    
+    // Update URL with the current seed for sharing/bookmarking
+    if (typeof window !== 'undefined' && window.history && window.location) {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('seed') !== seed) {
+            url.searchParams.set('seed', seed);
+            window.history.replaceState({}, '', url);
+        }
+    }
+    
     generateShip(seed, scene, THREE, currentShip);
+    
     if (addToHistory) {
         // If not at the end, truncate forward history
         if (seedIndex < seedHistory.length - 1) {
