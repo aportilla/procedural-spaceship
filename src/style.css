@@ -27,7 +27,7 @@ body {
     color: #fff;
     border-radius: 4px;
 }
-#controlsDiv, .controls-widget {
+.controls-widget {
   position: absolute;
   top: 16px;
   right: 16px;

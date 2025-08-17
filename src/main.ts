@@ -152,10 +152,6 @@ pillGroup.className = 'pill-group';
 pillGroup.appendChild(prevBtn);
 pillGroup.appendChild(nextBtn);
 
-// Clean up any old UI elements from previous versions
-const oldControlsDiv = document.getElementById('controlsDiv');
-if (oldControlsDiv?.parentNode) oldControlsDiv.parentNode.removeChild(oldControlsDiv);
-
 // Create footer section for controls
 let controlsFooter = document.getElementById('controlsFooter');
 if (controlsFooter?.parentNode) controlsFooter.parentNode.removeChild(controlsFooter);
