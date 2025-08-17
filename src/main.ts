@@ -1,7 +1,6 @@
 import * as THREE from 'three';
-import { randomSeed } from './randomseed.ts';
 import { generateShip } from './shipgen.ts';
-import { getInitialSeed } from './utilities/seed.ts';
+import { getInitialSeed, randomSeed } from './utilities/seed.ts';
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -25,7 +24,7 @@ const pointLight = new THREE.PointLight(0x4fc3f7, 0.5);
 pointLight.position.set(-10, 5, -10);
 scene.add(pointLight);
 
-// Orbit controls - no grid helper here!
+// Orbit controls
 let isDragging = false;
 let previousMouseX = 0, previousMouseY = 0;
 let theta = 45 * Math.PI / 180; // Horizontal angle

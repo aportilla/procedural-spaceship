@@ -8,3 +8,12 @@ export function getInitialSeed(): string {
     }
     return Math.random().toString(36).slice(2, 10);
 }
+
+export function randomSeed(): string {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let str = 'spaceship-';
+    for (let i = 0; i < 6; i++) {
+        str += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return str;
+}
