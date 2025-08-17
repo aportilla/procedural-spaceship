@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { randomSeed } from './randomseed.ts';
-import { generateShip, getInitialSeed } from './shipgen.ts';
+import { generateShip } from './shipgen.ts';
+import { getInitialSeed } from './utilities/seed.ts';
 
 // Scene setup
 const scene = new THREE.Scene();

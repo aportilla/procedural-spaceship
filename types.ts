@@ -1,6 +1,6 @@
 // Common types used across the project
 import * as THREE from 'three';
-import { SeededRandom } from './shipgen';
+import { SeededRandom } from './utilities/random';
 
 export interface ComponentResult {
     mesh: THREE.Group | THREE.Mesh;

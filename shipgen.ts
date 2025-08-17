@@ -5,6 +5,9 @@ import { makeThrusters } from './components/thrusters.ts';
 import { makeEngineBlock } from './components/engineBlock.ts';
 import { makeCargoSection } from './components/cargoSection.ts';
 import { makeCommandDeck } from './components/commandDeck.ts';
+import { SeededRandom } from './utilities/random.ts';
+import { getInitialSeed } from './utilities/seed.ts';
+import { addDebugLine } from './utilities/debug.ts';
 // import { radialThrusterLayout, gridThrusterLayout, offsetGridThrusterLayout } from './components/thrusterLayouts.js';
 
 
@@ -16,46 +19,6 @@ const SHIP_MIN_MASS = 10;
 // const MAX_THRUSTER_POWER = 250;
 // const MIN_THRUSTER_POWER = 5;
 
-
-// Seeded random number generator
-export class SeededRandom {
-    private seed: number;
-    
-    constructor(seed: string) {
-        this.seed = this.hashCode(seed);
-    }
-    
-    private hashCode(str: string): number {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            const char = str.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash;
-        }
-        return Math.abs(hash);
-    }
-    random(): number {
-        const x = Math.sin(this.seed++) * 10000;
-        return x - Math.floor(x);
-    }
-    
-    weightedRandom(target: number, standardDeviation: number = 0.1): number {
-        // Box-Muller transform
-        const u1 = this.random();
-        const u2 = this.random();
-        const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-        // Scale, shift, and clamp
-        let result = target + z * standardDeviation;
-        return Math.max(0, Math.min(1, result));
-    }
-    range(min: number, max: number): number {
-        return min + this.random() * (max - min);
-    }
-    
-    int(min: number, max: number): number {
-        return Math.floor(this.range(min, max + 1));
-    }
-}
 
 
 // Main ship generation function
@@ -205,24 +168,10 @@ export function generateShip(seed: string, scene: any, THREE: any, currentShipRe
     // ship.add(tunnelMesh);
 
     // Debug: Draw lines at each segment connection point
-    function addDebugLine(z: number, color: number = 0xff0000) {
-        const mat = new THREE.LineBasicMaterial({ color });
-        const points = [
-            new THREE.Vector3(-10, 0, z),
-            new THREE.Vector3(10, 0, z),
-            new THREE.Vector3(0, -10, z),
-            new THREE.Vector3(0, 10, z)
-        ];
-        for (let i = 0; i < points.length; i += 2) {
-            const geom = new THREE.BufferGeometry().setFromPoints([points[i], points[i+1]]);
-            const line = new THREE.Line(geom, mat);
-            ship.add(line);
-        }
-    }
-    addDebugLine(thrusterAttachmentPoint, 0xff0000); // Red: after thrusters
-    addDebugLine(cargoAttachmentPoint, 0x00ff00);    // Green: after engine block
-    addDebugLine(commandDeckAttachmentPoint, 0x0000ff); // Blue: after cargo
-    addDebugLine(endAttachmentPoint, 0xffff00);      // Yellow: after command deck
+    addDebugLine(ship, thrusterAttachmentPoint, 0xff0000, THREE); // Red: after thrusters
+    addDebugLine(ship, cargoAttachmentPoint, 0x00ff00, THREE);    // Green: after engine block
+    addDebugLine(ship, commandDeckAttachmentPoint, 0x0000ff, THREE); // Blue: after cargo
+    addDebugLine(ship, endAttachmentPoint, 0xffff00, THREE);      // Yellow: after command deck
 
     // Debug: Add a marker at the scene origin (0,0,0)
     // const originMarkerGeom = new THREE.SphereGeometry(0.2, 12, 8);
@@ -240,17 +189,4 @@ export function generateShip(seed: string, scene: any, THREE: any, currentShipRe
 
     currentShipRef.current = shipRoot;
     scene.add(shipRoot);
-}
-
-// Helper: Get seed from URL or generate new one
-export function getInitialSeed(): string {
-    if (typeof window !== 'undefined' && window.location) {
-        const url = new URL(window.location.href);
-        const urlSeed = url.searchParams.get('seed');
-        if (urlSeed && urlSeed.length > 0) {
-            return urlSeed;
-        }
-    }
-    // If no seed in URL, generate a random one
-    return Math.random().toString(36).slice(2, 10);
 }
