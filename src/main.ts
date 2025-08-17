@@ -13,6 +13,8 @@
 import * as THREE from 'three';
 import { generateShip } from './shipgen.ts';
 import { getInitialSeed, randomSeed } from './utilities/seed.ts';
+import { CommandDeckFactory } from './components/commandDeck/CommandDeckFactory.ts';
+import { CommandDeckShape } from './components/commandDeck/types.ts';
 
 // ============================================================================
 // THREE.JS SCENE SETUP
@@ -288,3 +290,38 @@ window.addEventListener('resize', () => {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+// ============================================================================
+// DEBUG INTERFACE
+// ============================================================================
+
+// Expose debug functions to browser console for development
+declare global {
+    interface Window {
+        debugCommandDeck: {
+            forceShape: (shape: CommandDeckShape | null) => void;
+            getCurrentShape: () => CommandDeckShape | null;
+            shapes: typeof CommandDeckShape;
+            regenerate: () => void;
+        };
+    }
+}
+
+window.debugCommandDeck = {
+    forceShape: (shape: CommandDeckShape | null) => {
+        CommandDeckFactory.setDebugForceShape(shape);
+        // Regenerate with current seed to see the change
+        setSeedAndGenerate(seedInput.value || 'default', false);
+    },
+    getCurrentShape: () => CommandDeckFactory.getDebugForceShape(),
+    shapes: CommandDeckShape,
+    regenerate: () => setSeedAndGenerate(seedInput.value || 'default', false)
+};
+
+console.log('Debug interface loaded. Use window.debugCommandDeck to force command deck shapes:');
+console.log('  debugCommandDeck.forceShape(debugCommandDeck.shapes.HammerheadCylinder)');
+console.log('  debugCommandDeck.forceShape(debugCommandDeck.shapes.Sphere)');
+console.log('  debugCommandDeck.forceShape(debugCommandDeck.shapes.Box)');
+console.log('  debugCommandDeck.forceShape(debugCommandDeck.shapes.Cylinder)');
+console.log('  debugCommandDeck.forceShape(null) // Disable override');
+console.log('  debugCommandDeck.getCurrentShape() // Check current override');

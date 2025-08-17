@@ -46,8 +46,7 @@ export interface ICommandDeckGenerator {
 export enum CommandDeckShape {
     Box = 'box',
     Cylinder = 'cylinder',
-    HammerheadCylinder = 'hammerheadCylinder',
-    Sphere = 'sphere'
+    Trapezoid = 'trapezoid'
 }
 
 /**

@@ -51,6 +51,12 @@ All ship components and parameters are strongly typed through `types.ts`. Key in
 
 ## Development Guidelines
 
+### Working Sessions...
+- When working on a task - it can be assumed that the human user already has a running web server for the project.
+- Claude should NOT start the local dev server itself.
+- When Claude runs a build - the already running vite dev server will automatically refresh the page the user is observing.
+- Claude may ask the user for visual confirmation of certain things.
+
 ### Adding New Ship Components
 1. Create component generator in `src/components/`
 2. Add corresponding type in `src/types.ts`
