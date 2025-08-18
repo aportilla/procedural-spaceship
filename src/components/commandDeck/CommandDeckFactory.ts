@@ -17,7 +17,7 @@ export class CommandDeckFactory {
     // DEBUG: Force a specific command deck shape for testing
     // Set to null to use normal weighted random selection
     // Example: CommandDeckShape.Trapezoid
-    private static DEBUG_FORCE_SHAPE: CommandDeckShape | null = null;
+    private static DEBUG_FORCE_SHAPE: CommandDeckShape | null = CommandDeckShape.Cylinder;
 
     constructor() {
         // Initialize generator registry
