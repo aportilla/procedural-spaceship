@@ -45,7 +45,7 @@ export class BoxCommandDeckGenerator implements ICommandDeckGenerator {
         const mesh = new THREE.Group();
         mesh.add(boxMesh);
         
-        // Add window details to front face
+        // Add window details to side faces
         this.addWindows(mesh, deckWidth, deckHeight, commandDeckDepth, rng, THREE);
 
         return {
@@ -57,7 +57,7 @@ export class BoxCommandDeckGenerator implements ICommandDeckGenerator {
     }
 
     /**
-     * Adds window details to box-shaped command decks
+     * Adds window details to side faces of box-shaped command decks
      */
     private addWindows(
         parentMesh: any, 
@@ -67,9 +67,10 @@ export class BoxCommandDeckGenerator implements ICommandDeckGenerator {
         rng: any, 
         THREE: any
     ): void {
-        // Window dimensions - larger height for better visibility
-        const windowHeight = 0.12;
-        const windowDepth = 0.001; // Very thin for flat appearance
+        // Individual window dimensions
+        const windowHeight = 0.08 + rng.random() * 0.08; // Height: 0.08 to 0.16
+        const windowDepth = 0.06 + rng.random() * 0.06; // Depth: 0.06 to 0.12 (thin in Z)
+        const windowThickness = 0.001; // Very thin for flat appearance
 
         // Create window material (dark, non-reflective to simulate viewport)
         const windowMaterial = new THREE.MeshBasicMaterial({
@@ -80,55 +81,62 @@ export class BoxCommandDeckGenerator implements ICommandDeckGenerator {
         // Container for all window meshes
         const windowGroup = new THREE.Group();
 
-        // Calculate available space (currently no margins)
-        const margin = 0; // TODO: Consider adding configurable margins
-        const availableWidth = boxWidth - (margin * 2);
-        const availableHeight = boxHeight - (margin * 2);
+        // Calculate available space for windows
+        const marginY = boxHeight * 0.25; // 25% margin from top and bottom
+        const availableHeight = boxHeight - (marginY * 2);
 
         // Validate minimum space requirements
         if (availableHeight < windowHeight) {
             return; // Box too short for windows
         }
 
-        // Generate random window dimensions
-        const aspectRatio = 0.5 + rng.random() * 1.5; // Aspect ratio: 0.5 to 2.0
-        const windowFrameWidth = 0.02 + rng.random() * 0.05; // Frame spacing between windows
-        const windowWidth = Math.min(
-            availableWidth - (windowFrameWidth * 2),
-            windowHeight * aspectRatio
-        );
-        const windowSpacing = windowWidth + windowFrameWidth;
+        // Calculate window spacing and count
+        const windowFrameSpacing = 0.02 + rng.random() * 0.03; // Frame spacing between windows
+        const windowWidth = windowHeight * (1.5 + rng.random() * 1.5); // Aspect ratio 1.5 to 3
+        const windowSpacing = windowWidth + windowFrameSpacing;
 
-        // Calculate window count constraints
-        const maxRectangles = Math.floor(availableWidth / windowSpacing);
-        const minWindows = Math.ceil(maxRectangles / 4); // At least 1/4 of max capacity
-        const maxWindows = Math.min(21, maxRectangles); // Cap at 21 for performance
+        // Calculate how many windows can fit horizontally
+        const maxWindows = Math.floor(availableHeight / windowSpacing);
+        const minWindows = Math.max(2, Math.floor(maxWindows / 3)); // At least 2 windows or 1/3 of max
+        const actualMaxWindows = Math.min(15, maxWindows); // Cap at 15 for performance
 
-        if (maxWindows < minWindows) {
-            console.warn('Not enough space for minimum windows');
-            return;
+        if (actualMaxWindows < minWindows) {
+            return; // Not enough space for minimum windows
         }
 
         // Determine final window count
-        const windowCount = Math.floor(rng.random() * (maxWindows - minWindows + 1)) + minWindows;
+        const windowCount = Math.floor(rng.random() * (actualMaxWindows - minWindows + 1)) + minWindows;
 
-        // Random vertical positioning (±30% from center)
-        const verticalOffset = boxHeight * (-0.3 + rng.random() * 0.6);
+        // Position along z-axis (front-back) - closer to front for better view
+        const zPosition = boxDepth * 0.8; // Position 80% toward the front
 
-        // Create and position individual windows
-        for (let i = 0; i < windowCount; i++) {
-            // Center windows horizontally
-            const xOffset = (i - (windowCount - 1) / 2) * windowSpacing;
+        // Create windows for both side faces (left and right)
+        const sides = [
+            { x: boxWidth / 2 + 0.001, rotation: 0 },      // Right side
+            { x: -boxWidth / 2 - 0.001, rotation: Math.PI } // Left side
+        ];
 
-            const window = new THREE.Mesh(
-                new THREE.BoxGeometry(windowWidth, windowHeight, windowDepth),
-                windowMaterial
-            );
+        sides.forEach(side => {
+            const sideGroup = new THREE.Group();
             
-            // Position slightly in front of the box face to prevent z-fighting
-            window.position.set(xOffset, verticalOffset, boxDepth + 0.001);
-            windowGroup.add(window);
-        }
+            // Create and position individual windows in a horizontal row
+            for (let i = 0; i < windowCount; i++) {
+                // Distribute windows along the y-axis (vertical, but horizontal from crew perspective)
+                const yOffset = (i - (windowCount - 1) / 2) * windowSpacing;
+
+                const window = new THREE.Mesh(
+                    new THREE.BoxGeometry(windowThickness, windowWidth, windowDepth),
+                    windowMaterial
+                );
+                
+                // Position on the side face
+                window.position.set(side.x, yOffset, zPosition);
+                window.rotation.y = side.rotation;
+                sideGroup.add(window);
+            }
+            
+            windowGroup.add(sideGroup);
+        });
 
         parentMesh.add(windowGroup);
     }
