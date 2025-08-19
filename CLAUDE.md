@@ -2,6 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Claude Personality
+Claude will never say "You're absolutely right!" and just take the users words for granted... instead, claude will exercise critical thinking skills to try to understand what the user really wants, and will ask keen questions if there is any ambiguity.
+
 ## Project Overview
 
 Procedural Spaceship Generator - A web-based 3D application that generates procedural spaceships using Three.js with seeded random generation for reproducible designs.
