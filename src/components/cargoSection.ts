@@ -8,24 +8,28 @@ import { MakeCargoSectionParams, CargoSectionResult } from '../types';
 
 /**
  * Determine number of cargo sections based on mass
- * Uses a weighted probability distribution that favors lower numbers for smaller masses
+ * Uses a bell curve distribution centered based on mass scale
  */
 function getNumberOfSections(mass: number, rng: any): number {
     const massScale = Math.min(1, mass / 1000); // Scale to 0-1 range
 
-    // Generate a random value with bias towards lower numbers
-    // Using a power function to create the bias
-    const randomValue = rng.random();
+    // Map mass to a target mean for the distribution
+    // Small masses (0) center around 3-4 sections
+    // Large masses (1) center around 8-9 sections
+    const targetMean = 3 + massScale * 6; // Ranges from 3 to 9
 
-    // The exponent controls the bias - higher values create stronger bias towards low numbers
-    // We vary the exponent based on mass - smaller masses have stronger bias
-    const biasFactor = 2.5 - (massScale * 1.5); // Ranges from 2.5 (small mass) to 1.0 (large mass)
-    const biasedRandom = Math.pow(randomValue, biasFactor);
+    // Generate a value using Box-Muller transform for normal distribution
+    // This gives us a gaussian/bell curve
+    const u1 = rng.random();
+    const u2 = rng.random();
+    const gaussian = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
 
-    // Map the biased random value to 1-12 sections
-    const sections = Math.floor(1 + biasedRandom * 11);
+    // Scale the gaussian (std dev of ~2.5 gives good spread across 1-12 range)
+    const stdDev = 2.5;
+    const rawSections = targetMean + gaussian * stdDev;
 
-    // Ensure we always have at least 1 section and at most 12
+    // Round and clamp to 1-12 range
+    const sections = Math.round(rawSections);
     return Math.max(1, Math.min(12, sections));
 }
 
@@ -94,15 +98,17 @@ export function makeCargoSection({ targetCargoMass, THREE, rng }: MakeCargoSecti
     if (numSections > 1) {
         // Spine dimensions - inset from edges
         const insetRatio = 0.01; // 1% inset from each edge
-        const spineWidth = width * (1 - 2 * insetRatio);
-        const spineHeight = height * (1 - 2 * insetRatio);
+        const insetAmount = insetRatio * Math.max(width, height);
+        const spineWidth = width - 2 * insetAmount;
+        const spineHeight = height - 2 * insetAmount;
+        const spineLength = totalLength - 2 * insetAmount;
 
         // Create spine geometry - extends full length of cargo section
-        const spineGeometry = new THREE.BoxGeometry(spineWidth, spineHeight, totalLength);
+        const spineGeometry = new THREE.BoxGeometry(spineWidth, spineHeight, spineLength);
 
         // Create spine material - slightly darker than cargo sections
         const spineMaterial = new THREE.MeshPhongMaterial({
-            color: 0x444444,
+            color: 0x666666,
             flatShading: true,
             shininess: 15
         });
