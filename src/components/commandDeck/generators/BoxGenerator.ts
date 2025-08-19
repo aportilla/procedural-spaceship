@@ -45,7 +45,7 @@ export class BoxCommandDeckGenerator implements ICommandDeckGenerator {
         const mesh = new THREE.Group();
         mesh.add(boxMesh);
         
-        // Add window details to side faces
+        // Add window details to top face
         this.addWindows(mesh, deckWidth, deckHeight, commandDeckDepth, rng, THREE);
 
         return {
@@ -57,7 +57,7 @@ export class BoxCommandDeckGenerator implements ICommandDeckGenerator {
     }
 
     /**
-     * Adds window details to side faces of box-shaped command decks
+     * Adds window details to top face of box-shaped command decks
      */
     private addWindows(
         parentMesh: any, 
@@ -68,8 +68,8 @@ export class BoxCommandDeckGenerator implements ICommandDeckGenerator {
         THREE: any
     ): void {
         // Individual window dimensions
-        const windowHeight = 0.08 + rng.random() * 0.08; // Height: 0.08 to 0.16
-        const windowDepth = 0.06 + rng.random() * 0.06; // Depth: 0.06 to 0.12 (thin in Z)
+        const windowWidth = 0.08 + rng.random() * 0.08; // Width: 0.08 to 0.16
+        const windowDepth = 0.06 + rng.random() * 0.06; // Depth: 0.06 to 0.12
         const windowThickness = 0.001; // Very thin for flat appearance
 
         // Create window material (dark, non-reflective to simulate viewport)
@@ -81,62 +81,43 @@ export class BoxCommandDeckGenerator implements ICommandDeckGenerator {
         // Container for all window meshes
         const windowGroup = new THREE.Group();
 
-        // Calculate available space for windows
-        const marginY = boxHeight * 0.25; // 25% margin from top and bottom
-        const availableHeight = boxHeight - (marginY * 2);
+        // Calculate available space for windows on top face
+        const marginX = boxWidth * 0.15; // 15% margin from sides
+        const availableWidth = boxWidth - (marginX * 2);
 
-        // Validate minimum space requirements
-        if (availableHeight < windowHeight) {
-            return; // Box too short for windows
-        }
-
-        // Calculate window spacing and count
+        // Calculate window spacing
         const windowFrameSpacing = 0.02 + rng.random() * 0.03; // Frame spacing between windows
-        const windowWidth = windowHeight * (1.5 + rng.random() * 1.5); // Aspect ratio 1.5 to 3
-        const windowSpacing = windowWidth + windowFrameSpacing;
+        const windowSpacingX = windowWidth + windowFrameSpacing;
 
         // Calculate how many windows can fit horizontally
-        const maxWindows = Math.floor(availableHeight / windowSpacing);
-        const minWindows = Math.max(2, Math.floor(maxWindows / 3)); // At least 2 windows or 1/3 of max
-        const actualMaxWindows = Math.min(15, maxWindows); // Cap at 15 for performance
+        const maxWindows = Math.floor(availableWidth / windowSpacingX);
+        const windowCount = Math.max(2, Math.min(10, maxWindows)); // Between 2-10 windows
 
-        if (actualMaxWindows < minWindows) {
+        if (windowCount < 2) {
             return; // Not enough space for minimum windows
         }
 
-        // Determine final window count
-        const windowCount = Math.floor(rng.random() * (actualMaxWindows - minWindows + 1)) + minWindows;
+        // Position on top face (y = boxHeight/2)
+        const yPosition = boxHeight / 2 + 0.001; // Just above the top surface
+        
+        // Randomize position along depth - somewhere between 30% and 85% toward the front
+        const zRatio = 0.3 + rng.random() * 0.55; // Random value between 0.3 and 0.85
+        const zPosition = boxDepth * zRatio;
 
-        // Position along z-axis (front-back) - closer to front for better view
-        const zPosition = boxDepth * 0.8; // Position 80% toward the front
+        // Create single row of windows on top face
+        for (let i = 0; i < windowCount; i++) {
+            // Calculate position for each window
+            const xOffset = (i - (windowCount - 1) / 2) * windowSpacingX;
 
-        // Create windows for both side faces (left and right)
-        const sides = [
-            { x: boxWidth / 2 + 0.001, rotation: 0 },      // Right side
-            { x: -boxWidth / 2 - 0.001, rotation: Math.PI } // Left side
-        ];
-
-        sides.forEach(side => {
-            const sideGroup = new THREE.Group();
+            const window = new THREE.Mesh(
+                new THREE.BoxGeometry(windowWidth, windowThickness, windowDepth),
+                windowMaterial
+            );
             
-            // Create and position individual windows in a horizontal row
-            for (let i = 0; i < windowCount; i++) {
-                // Distribute windows along the y-axis (vertical, but horizontal from crew perspective)
-                const yOffset = (i - (windowCount - 1) / 2) * windowSpacing;
-
-                const window = new THREE.Mesh(
-                    new THREE.BoxGeometry(windowThickness, windowWidth, windowDepth),
-                    windowMaterial
-                );
-                
-                // Position on the side face
-                window.position.set(side.x, yOffset, zPosition);
-                window.rotation.y = side.rotation;
-                sideGroup.add(window);
-            }
-            
-            windowGroup.add(sideGroup);
-        });
+            // Position on the top face
+            window.position.set(xOffset, yPosition, zPosition);
+            windowGroup.add(window);
+        }
 
         parentMesh.add(windowGroup);
     }
